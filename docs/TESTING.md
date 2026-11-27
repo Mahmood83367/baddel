@@ -5,6 +5,56 @@ means the check produced the expected text or the expected refusal; nothing
 here is inferred. The first part covers what 0.2.0 added; the sections after
 it are the 0.1.0 record, which still applies.
 
+## Added in 0.2.1
+
+### macOS installer, upgrade and Open at Login
+
+Run by `macos/scripts/pkg-install-check.sh` on a **throwaway GitHub-hosted
+macOS runner** (macOS 15, Apple silicon), with a real `installer` run as
+administrator. The package under test is the **unsigned test build**, because
+CI has no signing identity; it is never published. All 28 checks passed.
+
+| Scenario | Result |
+|---|---|
+| Package metadata: Installer is told to close Baddel by bundle identifier; the package contains no scripts | Passed |
+| Fresh install: `Baddel.app` is in `/Applications`, version, bundle identifier and icon are right, the signature verifies, the app starts | Passed |
+| The package installed only `Applications/Baddel.app`; no launch agent or daemon exists afterwards | Passed |
+| Installing did not turn on Open at Login | Passed |
+| Open at Login: turning it on from `/Applications` is accepted and macOS reports it enabled | Passed |
+| Open at Login: turning it off returns it to off; on and off again is repeatable | Passed |
+| Upgrade over the published 0.1.0 preview (downloaded and hash-checked): `/Applications` holds the new version, which verifies and starts | Passed |
+| A second old copy elsewhere on the disk was not touched (the package is not relocated to it) | Passed |
+| The new build's code identity differs from the old preview's, so the old Accessibility entry cannot apply | Passed |
+| The command behind "Remove Old Entry…" (`tccutil reset Accessibility app.baddel.Baddel`) succeeds | Passed |
+| Upgrade over the published 0.2.0, and installing the same version again | Passed |
+| Uninstall as documented: app and receipt are gone | Passed |
+
+On the development Mac, without installing anything: the package was built and
+expanded to confirm its payload, metadata and bilingual Installer pages; Open
+at Login reports its state and **refuses to turn on from a copy outside
+`/Applications`**; the app signs correctly with the Developer ID Application
+identity.
+
+**Not done:**
+
+- **A real logout and login.** The checks confirm registration with macOS and
+  its removal, not that Baddel actually opens at the next login.
+- **The Installer window.** The package was installed with the command-line
+  `installer`, which does not show the "quit Baddel" prompt or the welcome and
+  conclusion pages; those were inspected as files only.
+- **A signed and notarized installer.** No Developer ID Installer identity and
+  no notarization profile were available, so the endorsed installer has not
+  been built, and Gatekeeper's acceptance of it has not been observed.
+- **Granting Accessibility after an upgrade by hand**, including clicking
+  "Remove Old Entry…" in the window: CI cannot grant Accessibility.
+- **Intel Macs.**
+
+### Other
+
+The app icon appears in the macOS bundle and the Windows executable; the
+Windows tray icon now uses the executable's icon. The Windows and Linux jobs
+pass unchanged.
+
 ## Added in 0.2.0
 
 ### Automated tests

@@ -44,10 +44,11 @@ counts as a different app as far as Accessibility is concerned. After
 upgrading you may see Baddel listed and switched on under Accessibility while
 Baddel itself says access is not granted. That entry belongs to the old build.
 
-To fix it, click **Remove Old Entry…** in Baddel's access window and confirm,
-then turn Baddel on in the list again. This removes only Baddel's own entry.
-You can do the same by hand: select Baddel in the list, press **–**, and add
-it again. From Terminal the equivalent is:
+To fix it in Baddel 0.2.1 or later, click **Remove Old Entry…** in Baddel's
+access window and confirm, then turn Baddel on in the list again. This removes
+only Baddel's own entry. In 0.2.0 and 0.1.0 that button does not exist: select
+Baddel in the Accessibility list, press **–**, and add it again. From Terminal
+the equivalent, for any version, is:
 
 ```bash
 tccutil reset Accessibility app.baddel.Baddel
@@ -62,7 +63,7 @@ team ever changes, one more approval will be needed.
 
 ## Open at login
 
-Off by default. To turn it on: menu bar icon → **Settings…** → **Open Baddel
+Available from 0.2.1. Off by default. To turn it on: menu bar icon → **Settings…** → **Open Baddel
 at login**.
 
 - It uses the standard macOS login-item mechanism for an app

@@ -14,6 +14,15 @@
 
 What was and was not tested is in [TESTING.md](TESTING.md).
 
+## Added in 0.2.1
+
+- A macOS installer package for `/Applications/Baddel.app`, published only
+  when it is signed and notarized. See [MACOS.md](MACOS.md).
+- Opt-in "Open Baddel at login" on macOS.
+- "Remove Old Entry…" in the Accessibility window, for upgrades from the
+  ad-hoc previews.
+- The app icon on macOS and Windows.
+
 ## Added in 0.2.0
 
 - A choice of English layout: Automatic / US / British on macOS, US / UK on
@@ -77,7 +86,7 @@ See [CLIPBOARD_HISTORY.md](CLIPBOARD_HISTORY.md).
   office suites; decide per app whether the paste fallback is needed.
 - Windows: multi-line fields that are reachable only through UI Automation;
   an installer and a "start with Windows" option; an ARM64 build.
-- macOS: notarization (a Developer ID identity exists; a notarization profile is not configured yet); launch at login.
+- macOS: the signed, notarized installer. A Developer ID Application identity exists; a Developer ID Installer identity and a notarization profile are still needed.
 - Arabic localisation of the interface.
 - An optional word list to resolve the `لا` ambiguity on Arabic-PC and
   Arabic (101).
