@@ -67,12 +67,12 @@ public sealed class ScriptEvidence
     }
 
     public static bool IsArabicLetter(char unit) =>
-        unit is (>= 'ء' and <= 'ْ') or (>= 'ٮ' and <= 'ۓ')
-            or (>= 'ﭐ' and <= '﷿') or (>= 'ﹰ' and <= 'ﻼ');
+        (int)unit is (>= 0x0621 and <= 0x0652) or (>= 0x066E and <= 0x06D3)
+            or (>= 0xFB50 and <= 0xFDFF) or (>= 0xFE70 and <= 0xFEFC);
 
     public static bool IsLatinLetter(char unit) =>
-        unit is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z')
-        || (unit >= 'À' && unit <= 'ɏ' && unit != '×' && unit != '÷');
+        (int)unit is (>= 0x41 and <= 0x5A) or (>= 0x61 and <= 0x7A)
+            or ((>= 0xC0 and <= 0x24F) and not 0xD7 and not 0xF7);
 
     public EvidenceCounts Count(ReadOnlySpan<char> units)
     {

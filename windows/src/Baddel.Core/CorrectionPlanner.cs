@@ -113,12 +113,13 @@ public sealed class CorrectionPlanner
         return new CorrectionPlan(range, segment, replacement, source.Value);
     }
 
+    // Code points are written as integers: C# does not allow line-separator
+    // characters, even as \u escapes, inside character literals.
     public static bool IsHorizontalSpace(char unit) =>
-        unit is '\u0009' or ' ' or ' ' or ' ' or (>= ' ' and <= ' ')
-            or ' ' or ' ' or '　';
+        (int)unit is 0x09 or 0x20 or 0xA0 or 0x1680 or (>= 0x2000 and <= 0x200A) or 0x202F or 0x205F or 0x3000;
 
     public static bool IsLineBreak(char unit) =>
-        unit is '\u000A' or '\u000B' or '\u000C' or '\u000D' or '\u0085' or ' ' or ' ';
+        (int)unit is 0x0A or 0x0B or 0x0C or 0x0D or 0x85 or 0x2028 or 0x2029;
 
     public static bool IsWhitespace(char unit) => IsHorizontalSpace(unit) || IsLineBreak(unit);
 
