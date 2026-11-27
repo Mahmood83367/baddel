@@ -4,8 +4,8 @@
 shared/layouts/*.json        layout data (every platform)
 shared/fixtures/cases.json   expected results (every platform)
 
-macos/Sources/BaddelCore     pure logic, Foundation only, no system APIs
-macos/Sources/BaddelMacKit   Accessibility, input sources, pasteboard, logging
+macos/Sources/BaddelCore     pure logic: Foundation, plus CryptoKit for update signatures; no UI or system APIs
+macos/Sources/BaddelMacKit   Accessibility, input sources, pasteboard, clipboard history, update check, logging
 macos/Sources/Baddel         menu bar app: hot key, Undo panel, windows
 macos/Sources/BaddelAXCheck  developer tool used by the check scripts
 

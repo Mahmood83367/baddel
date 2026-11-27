@@ -14,14 +14,21 @@
 
 What was and was not tested is in [TESTING.md](TESTING.md).
 
+## Added in 0.2.0
+
+- A choice of English layout: Automatic / US / British on macOS, US / UK on
+  Windows, each from the system's own table.
+- Layout switching selects exactly the layout used for conversion, and leaves
+  the keyboard alone when that layout is not installed.
+- Custom layouts from a file, validated before use.
+  See [LAYOUTS.md](LAYOUTS.md).
+- Opt-in clipboard history on macOS: text, images and file references, search,
+  and Keep File Copy. See [CLIPBOARD_HISTORY.md](CLIPBOARD_HISTORY.md).
+- Check for Updates with stable and preview channels, and the verification
+  half of signed updates. See [UPDATES.md](UPDATES.md).
+- A rule and a CI check that every published version is new and higher.
+
 ## Upcoming
-
-### Clipboard history (macOS)
-
-A local, searchable history of copied text, images and files, with file
-references and an explicit pin that keeps a copy. Designed in
-[CLIPBOARD_HISTORY.md](CLIPBOARD_HISTORY.md). **Not implemented; not part of
-0.1.0.**
 
 ### Linux desktop version
 
@@ -37,44 +44,32 @@ desktop's own interface; an Undo that can be positioned on Wayland; packaging
 beyond a tarball. Support will be claimed only for desktop environments it has
 actually been tested on. Design: [LINUX.md](LINUX.md).
 
-### More keyboard layouts, with manual control
+### Keyboard layouts
 
-Today: one English layout (US) and two Arabic variants per platform, chosen
-manually. Planned:
-
-- An **English layout selector** next to the Arabic one. The first additions
-  (UK English, for example) need the extra ISO key that the current 47-key
-  table does not describe, so the data format gains that key first.
-- **Detection of installed layouts**, offered as the default while keeping the
-  manual choice.
-- **User-entered custom mappings**, validated before use: every key present
-  exactly once, no empty base output, and a round-trip check against the other
-  layout, with a clear report of what is ambiguous.
-- Every new layout is generated from the operating system's own table and
-  tested on its own. Two layouts are never treated as identical because their
-  names match.
+- The extra key of ISO keyboards, which UK and many European layouts need for
+  `\` and `|`; the table format gains that key first.
+- More layouts, each generated from the operating system's own table and
+  tested on its own.
+- On Windows, an "Automatic" choice that follows the installed layouts, as
+  macOS has.
+- A way to import and check a custom layout from Settings, instead of placing
+  a file by hand.
 
 ### Updates
 
-There is no updater in 0.1.0 and the app makes no network connections.
-Planned, in this order:
+Today: a manual check, an opt-in daily check, two channels, and tested
+verification of signed manifests with no trusted key configured, so nothing
+can be installed. Remaining, in order: an update signing key; platform code
+signing (Developer ID with notarization, Authenticode); signed manifests
+attached to releases; an installer with staging and rollback per platform;
+real update and rollback tests. Automatic installation stays opt-in and is not
+shipped before all of that exists. See [UPDATES.md](UPDATES.md).
 
-1. **"Check for Updates…"**, a manual action that compares the running version
-   with the latest official release published from `main`, and opens the
-   release page. It downloads and installs nothing.
-2. **Release and channel compatibility**: a small signed manifest per channel
-   (stable first) stating version, minimum OS, and the package hashes, so an
-   app only offers updates that fit it.
-3. **Opt-in automatic installation**, off by default, shipped only when all of
-   the following exist: a dedicated update signing key whose public half is
-   compiled into the app; platform code signing (Developer ID with
-   notarization, Authenticode) for the packages; and real update *and
-   rollback* tests on each platform.
+### Clipboard history
 
-Rules that will not change: updates come only from official release assets
-built from `main`; the signature and hash are verified before anything is
-unpacked; unsigned or unverifiable update code is never executed; a failed
-update leaves the installed version working.
+Excluding apps, bookmarks so file references survive moves, a configurable
+shortcut and limits, and versions for Windows and Linux.
+See [CLIPBOARD_HISTORY.md](CLIPBOARD_HISTORY.md).
 
 ### Smaller items
 
@@ -82,7 +77,7 @@ update leaves the installed version working.
   office suites; decide per app whether the paste fallback is needed.
 - Windows: multi-line fields that are reachable only through UI Automation;
   an installer and a "start with Windows" option; an ARM64 build.
-- macOS: Developer ID signing with notarization; launch at login.
+- macOS: notarization (a Developer ID identity exists; a notarization profile is not configured yet); launch at login.
 - Arabic localisation of the interface.
 - An optional word list to resolve the `لا` ambiguity on Arabic-PC and
   Arabic (101).

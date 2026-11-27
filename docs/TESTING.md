@@ -1,8 +1,94 @@
-# Testing record for 0.1.0
+# Testing record
 
 This page records what was actually run, where, and what was not. "Passed"
 means the check produced the expected text or the expected refusal; nothing
-here is inferred.
+here is inferred. The first part covers what 0.2.0 added; the sections after
+it are the 0.1.0 record, which still applies.
+
+## Added in 0.2.0
+
+### Automated tests
+
+| Suite | Count | Where it ran |
+|---|---|---|
+| Swift (`cd macos && swift test`) | 39 | macOS 26.5 (Apple silicon), local |
+| C# core | 24 | Windows 11 (x64), self-hosted |
+| C# Windows layer | 23 | Windows 11 (x64), self-hosted |
+| C# Linux layer | 4 | compiled and run with the .NET SDK on Windows; runs on Ubuntu in CI |
+
+New in these suites:
+
+- **Layouts:** every built-in table passes validation; the committed Windows
+  tables (US, UK, Arabic 101, Arabic 102) equal the tables inside that
+  machine's layout DLLs; the macOS British table equals a fresh dump from
+  macOS; Windows offers only Windows tables and falls back to the 0.1.0
+  defaults for a missing, unknown or wrong-script choice.
+- **Custom layouts:** each validation rule; a folder with one valid and four
+  invalid files adds exactly the valid one and leaves the built-in layouts
+  untouched.
+- **Updates** (shared fixture, run by Swift and C#): version ordering; channel
+  selection in eleven situations; a signed manifest accepted with the right
+  key and refused with no key, another key, a changed byte, a damaged or empty
+  signature, the wrong channel, or a version that is not newer; package
+  selection by platform, architecture and OS version; the SHA-256 check; and
+  that no update key is trusted.
+- **Clipboard history** (macOS): six tests — three against a test double and
+  three against **real macOS pasteboards**. Each real-pasteboard test creates
+  its own uniquely named pasteboard and releases it afterwards; the system
+  clipboard is never read or written. They cover: text captured and restored;
+  entries marked concealed, transient or auto-generated not stored (and absent
+  from the file on disk); the history surviving a restart; the storage folder
+  having owner-only permissions; a PNG round trip; a file reference; Keep File
+  Copy surviving deletion of the original; and an unpinned reference to a
+  deleted file refusing to restore.
+
+### macOS checks
+
+| Check | Result |
+|---|---|
+| The correction and clipboard hot keys registered together; three presses each reached only their own handler (`--hotkey-coexistence-check`, on throwaway key combinations) | Passed |
+| The correction shortcut is still ⌥⇧Space and registers | Passed |
+| Live update check, preview channel: reports 0.1.0, no update for 0.2.0 | Passed |
+| Live update check, stable channel: reports that no stable release exists | Passed |
+| A failed request (GitHub answered 502 once) is reported as a failed check, not as "up to date" | Observed |
+| Layout resolution: British + Arabic – PC chosen; a valid custom layout chosen; an invalid custom layout falls back to US English | Passed |
+| `Baddel-0.2.0-macos-universal.zip` built, extracted, hashes verified, both architectures present, self-check run | Passed |
+
+**Not run:** the macOS end-to-end script (`hotkey-e2e-check.sh`, real shortcut
+presses against TextEdit), including its new cases for the British and US
+choice. A released copy of Baddel was running on the test Mac, and the script
+refuses to start next to another instance, because two instances would both
+act on the same key press. The clipboard window (⌥⇧V, search, the buttons) and
+the update dialogs were not operated by hand.
+
+### Windows desktop checks
+
+Same machine and method as below (Windows 11 build 26200, x64, interactive
+Remote Desktop session, the self-contained `Baddel.exe` from the 0.2.0 ZIP).
+Installed layouts: US English and Arabic (101) only. **48 checks passed.**
+New ones:
+
+| Scenario | Result |
+|---|---|
+| After English→Arabic, Windows' active layout is `00000401`, the layout used for conversion | Passed |
+| After Arabic→English, Windows' active layout is `00000409` | Passed |
+| Arabic (102) chosen, not installed: converted with the 102 table; keyboard left as it was | Passed |
+| UK English chosen: converted with the UK table (`#` handled as the UK key) | Passed |
+| UK English chosen, not installed: switching back to English leaves the keyboard as it was | Passed |
+| US English chosen: converted with the US table | Passed |
+| Settings file from 0.1.0 with no English choice: US English | Passed |
+| Custom layout file: loaded, converted with its table, keyboard not switched | Passed |
+| Invalid custom layout file: ignored, Arabic (101) used | Passed |
+| Live update check from the packaged app, both channels | Passed |
+
+Switching to an *installed* UK or Arabic (102) layout was not run on this
+machine, which has neither. The `windows-app` CI job adds them to its
+throwaway runner account; see that job's output for each run.
+
+A correction to the 0.1.0 record: the layout-dump tool used then loaded
+keyboard layouts into the test session as a side effect. That has been
+removed (the tool now only reads layout DLLs), and the stray entries were
+unloaded from that session.
 
 ## Automated tests
 

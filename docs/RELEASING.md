@@ -1,13 +1,27 @@
 # Releasing
 
-The version is the single line in [`VERSION`](../VERSION). Both platforms read
-it at build time.
+The version is the single line in [`VERSION`](../VERSION). Every platform reads
+it at build time, and package names and the release tag are derived from it.
+
+## Version rules
+
+- **Every published update gets a new, higher version.** A feature release
+  raises the minor version (0.1.0 → 0.2.0); a fix that ships on its own raises
+  the patch version (0.2.0 → 0.2.1).
+- **A published version is never rebuilt, re-uploaded or replaced.** If a
+  package has to change after publication, publish a new version.
+- The tag is `v<VERSION>` on the commit the packages were built from.
+
+`tools/check-version.sh` enforces this and runs as the `version` job in CI. It
+fails when the tag `v<VERSION>` already exists on a different commit, or when
+`VERSION` is not higher than every published version. The first change after a
+release therefore has to raise `VERSION`.
 
 ## Signing status
 
-| | 0.1.0 packages | How to change it |
+| | Packages so far | How to change it |
 |---|---|---|
-| macOS | Ad-hoc signed, **not notarized** | Set `BADDEL_SIGN_IDENTITY` to a Developer ID Application identity and `BADDEL_NOTARY_PROFILE` to a `notarytool` keychain profile |
+| macOS | Ad-hoc signed, **not notarized** | Set `BADDEL_SIGN_IDENTITY` to a Developer ID Application identity and `BADDEL_NOTARY_PROFILE` to a `notarytool` keychain profile. Notarization needs a profile created once with `xcrun notarytool store-credentials`; CI has no signing secrets, so signed builds are made locally |
 | Windows | **Not code-signed** | Set `BADDEL_SIGN_THUMBPRINT` to a code-signing certificate thumbprint |
 
 Signing is opt-in so that a release build never depends on, or exposes, a
@@ -83,6 +97,14 @@ Record the outcome in [TESTING.md](TESTING.md).
 
 ## Publish
 
-Publishing is a manual step: tag the release commit on `main`, create the
-GitHub release, attach the two ZIPs and their `.sha256` files, and state the
-signing status from the table above in the release notes.
+Publishing is a manual step, from the release commit on `main` only:
+
+1. `tools/check-version.sh` passes on that commit.
+2. Download the package artifacts of the CI run **for that exact commit**, and
+   verify each ZIP against its `.sha256` and its inner `SHA256SUMS.txt`.
+3. Create the release with tag `v<VERSION>` targeting that commit and attach
+   the packages and their `.sha256` files. `gh release create` refuses a tag
+   that already exists; never work around that.
+4. Mark it as a pre-release for a preview, so that it reaches the preview
+   update channel only.
+5. State the signing status from the table above in the release notes.

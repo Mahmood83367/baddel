@@ -28,6 +28,10 @@ dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
 dotnet test windows/tests/Baddel.Windows.Tests/Baddel.Windows.Tests.csproj
 ```
 
+```bash
+dotnet test linux/tests/Baddel.Linux.Tests/Baddel.Linux.Tests.csproj   # on Linux
+```
+
 - Behaviour shared by the platforms belongs in
   [`shared/fixtures/cases.json`](shared/fixtures/cases.json), which every
   platform's tests run.
@@ -37,6 +41,20 @@ dotnet test windows/tests/Baddel.Windows.Tests/Baddel.Windows.Tests.csproj
 - Test fixtures must be clearly synthetic. Never commit real typed text,
   personal data, credentials or machine names.
 - Diagnostics must never contain text read from or written to a field.
+
+## Keep both language guides current
+
+- Update the [English README](README.md) and [Arabic README](README.ar.md)
+  in the same pull request when a change affects installation, usage,
+  shortcuts, settings, supported platforms, or privacy.
+- Review both guides before publishing any release. Check the download links,
+  package and signing details, and the capabilities actually tested. Update
+  the illustrated demo when the workflow it shows changes.
+- Each published update gets a higher number in `VERSION`. Use that number
+  for the release tag, packages, and notes. Keep previously published versions
+  and their checksums intact. The `version` CI job runs
+  `tools/check-version.sh`, which fails if `VERSION` is already published
+  from another commit or is not higher than every published version.
 
 ## CI
 
