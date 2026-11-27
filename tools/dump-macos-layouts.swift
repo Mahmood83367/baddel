@@ -21,10 +21,10 @@ let keys: [(code: String, mac: UInt16)] = [
     ("KeyM", 46), ("Comma", 43), ("Period", 47), ("Slash", 44),
 ]
 
-let layouts: [(file: String, id: String, name: String, script: String, sourceIDs: [String])] = [
-    ("us-english", "us-english", "US English", "latin", ["com.apple.keylayout.US", "com.apple.keylayout.ABC"]),
-    ("arabic-mac", "arabic-mac", "Arabic (macOS)", "arabic", ["com.apple.keylayout.Arabic"]),
-    ("arabic-pc", "arabic-pc", "Arabic – PC", "arabic", ["com.apple.keylayout.ArabicPC"]),
+let layouts: [(file: String, id: String, name: String, script: String, sourceIDs: [String], windowsIDs: [String])] = [
+    ("us-english", "us-english", "US English", "latin", ["com.apple.keylayout.US", "com.apple.keylayout.ABC"], ["00000409"]),
+    ("arabic-mac", "arabic-mac", "Arabic (macOS)", "arabic", ["com.apple.keylayout.Arabic"], []),
+    ("arabic-pc", "arabic-pc", "Arabic – PC", "arabic", ["com.apple.keylayout.ArabicPC"], []),
 ]
 
 func translate(_ layout: UnsafePointer<UCKeyboardLayout>, key: UInt16, shift: Bool) -> String? {
@@ -77,12 +77,15 @@ for l in layouts {
             lines.append("    { \"code\": \(esc(k.code)), \"base\": \(esc(b)), \"shift\": \(esc(s)) }")
         }
     }
+    // The Windows US layout table was compared with this one on Windows. The
+    // Windows Arabic layouts are generated there by `baddel-wincheck --dump-layouts`.
+    let windows = l.windowsIDs.isEmpty ? "" : ", \"windows\": [\(l.windowsIDs.map(esc).joined(separator: ", "))]"
     let json = """
     {
       "id": \(esc(l.id)),
       "name": \(esc(l.name)),
       "script": \(esc(l.script)),
-      "platformIds": { "macos": [\(l.sourceIDs.map(esc).joined(separator: ", "))] },
+      "platformIds": { "macos": [\(l.sourceIDs.map(esc).joined(separator: ", "))]\(windows) },
       "keys": [
     \(lines.joined(separator: ",\n"))
       ]

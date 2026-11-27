@@ -15,7 +15,7 @@ public class SharedFixtureTests
     private static readonly JsonElement Cases =
         JsonDocument.Parse(File.ReadAllText(Path.Combine(Shared, "fixtures", "cases.json"))).RootElement;
 
-    private static string FindShared()
+    internal static string FindShared()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
@@ -39,7 +39,7 @@ public class SharedFixtureTests
     [Fact]
     public void LayoutsLoad()
     {
-        Assert.Equal(new[] { "arabic-mac", "arabic-pc", "us-english" }, Store.Layouts.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+        Assert.Equal(new[] { "arabic-mac", "arabic-pc", "arabic-windows-101", "arabic-windows-102", "us-english" }, Store.Layouts.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
         Assert.All(Store.Layouts.Values, layout => Assert.Equal(47, layout.Keys.Count));
     }
 
