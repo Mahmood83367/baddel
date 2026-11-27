@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "channel": "preview",
+  "version": "9.9.9-preview.1",
+  "packages": [
+    { "platform": "macos", "arch": "universal", "minOS": "13.0", "url": "https://github.com/Mahmood83367/baddel/releases/download/v9.9.9-preview.1/Baddel-9.9.9-preview.1-macos-universal.zip", "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "size": 3 },
+    { "platform": "windows", "arch": "x64", "minOS": "10.0", "url": "https://github.com/Mahmood83367/baddel/releases/download/v9.9.9-preview.1/Baddel-9.9.9-preview.1-windows-x64.zip", "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "size": 3 }
+  ]
+}

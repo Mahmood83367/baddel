@@ -1,0 +1,282 @@
+{
+ "note": "Test data for update logic. The key pair was generated only for this fixture; the private half was discarded and signs nothing else.",
+ "versionOrder": [
+  "0.1.0-alpha",
+  "0.1.0-alpha.1",
+  "0.1.0-alpha.beta",
+  "0.1.0-beta",
+  "0.1.0-beta.2",
+  "0.1.0-beta.11",
+  "0.1.0-rc.1",
+  "0.1.0",
+  "0.1.1",
+  "0.2.0-preview.1",
+  "0.2.0",
+  "0.10.0",
+  "1.0.0"
+ ],
+ "invalidVersions": [
+  "",
+  "1.0",
+  "1.0.0.0",
+  "a.b.c",
+  "1.0.0-",
+  "1.0.0-a..b",
+  "-1.0.0",
+  "1.0.x",
+  "01x.0.0"
+ ],
+ "equalVersions": [
+  [
+   "v0.2.0",
+   "0.2.0"
+  ],
+  [
+   "0.2.0+build5",
+   "0.2.0"
+  ]
+ ],
+ "releaseChecks": [
+  {
+   "name": "only a preview exists: stable channel has nothing",
+   "current": "0.1.0",
+   "channel": "stable",
+   "releases": [
+    {
+     "tag_name": "v0.1.0",
+     "prerelease": true,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.1.0",
+     "name": "v0.1.0"
+    }
+   ],
+   "latest": null,
+   "updateAvailable": false
+  },
+  {
+   "name": "only a preview exists: preview channel is up to date",
+   "current": "0.1.0",
+   "channel": "preview",
+   "releases": [
+    {
+     "tag_name": "v0.1.0",
+     "prerelease": true,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.1.0",
+     "name": "v0.1.0"
+    }
+   ],
+   "latest": "0.1.0",
+   "updateAvailable": false
+  },
+  {
+   "name": "stable ignores a newer preview",
+   "current": "0.2.0",
+   "channel": "stable",
+   "releases": [
+    {
+     "tag_name": "v0.3.0-preview.1",
+     "prerelease": true,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.3.0-preview.1",
+     "name": "v0.3.0-preview.1"
+    },
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    }
+   ],
+   "latest": "0.2.0",
+   "updateAvailable": false
+  },
+  {
+   "name": "preview offers the newer preview",
+   "current": "0.2.0",
+   "channel": "preview",
+   "releases": [
+    {
+     "tag_name": "v0.3.0-preview.1",
+     "prerelease": true,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.3.0-preview.1",
+     "name": "v0.3.0-preview.1"
+    },
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    }
+   ],
+   "latest": "0.3.0-preview.1",
+   "updateAvailable": true
+  },
+  {
+   "name": "preview offers a newer stable release too",
+   "current": "0.2.0-preview.1",
+   "channel": "preview",
+   "releases": [
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    },
+    {
+     "tag_name": "v0.2.0-preview.2",
+     "prerelease": true,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0-preview.2",
+     "name": "v0.2.0-preview.2"
+    }
+   ],
+   "latest": "0.2.0",
+   "updateAvailable": true
+  },
+  {
+   "name": "stable offers the newest stable, not the first listed",
+   "current": "0.1.0",
+   "channel": "stable",
+   "releases": [
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    },
+    {
+     "tag_name": "v0.10.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.10.0",
+     "name": "v0.10.0"
+    },
+    {
+     "tag_name": "v0.9.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.9.0",
+     "name": "v0.9.0"
+    }
+   ],
+   "latest": "0.10.0",
+   "updateAvailable": true
+  },
+  {
+   "name": "a version tag marked pre-release on GitHub counts as preview",
+   "current": "0.1.0",
+   "channel": "stable",
+   "releases": [
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": true,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    }
+   ],
+   "latest": null,
+   "updateAvailable": false
+  },
+  {
+   "name": "drafts are ignored",
+   "current": "0.1.0",
+   "channel": "preview",
+   "releases": [
+    {
+     "tag_name": "v0.5.0",
+     "prerelease": false,
+     "draft": true,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.5.0",
+     "name": "v0.5.0"
+    },
+    {
+     "tag_name": "v0.1.0",
+     "prerelease": true,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.1.0",
+     "name": "v0.1.0"
+    }
+   ],
+   "latest": "0.1.0",
+   "updateAvailable": false
+  },
+  {
+   "name": "tags that are not versions are ignored",
+   "current": "0.1.0",
+   "channel": "stable",
+   "releases": [
+    {
+     "tag_name": "nightly",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/nightly",
+     "name": "nightly"
+    },
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    }
+   ],
+   "latest": "0.2.0",
+   "updateAvailable": true
+  },
+  {
+   "name": "releases outside the official repository are ignored",
+   "current": "0.1.0",
+   "channel": "stable",
+   "releases": [
+    {
+     "tag_name": "v9.0.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/someone-else/baddel/releases/tag/v9.0.0",
+     "name": "v9.0.0"
+    },
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    }
+   ],
+   "latest": "0.2.0",
+   "updateAvailable": true
+  },
+  {
+   "name": "an older release is not an update",
+   "current": "0.3.0",
+   "channel": "stable",
+   "releases": [
+    {
+     "tag_name": "v0.2.0",
+     "prerelease": false,
+     "draft": false,
+     "html_url": "https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0",
+     "name": "v0.2.0"
+    }
+   ],
+   "latest": "0.2.0",
+   "updateAvailable": false
+  }
+ ],
+ "manifest": {
+  "file": "update-manifest.json",
+  "signatureBase64": "MEUCIGpfys9QgfBGmh/Ay4uQYH08NkgasRIVkJfybtdMICuhAiEAswxVZ+7Jrcn9oF6y8w5AcnpMm8kLVHKehjmPwB/woeM=",
+  "publicKeyBase64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEnk774dkSxt9sE8mI9QMRAOIMEZimGl46lYGCufa4AX66x18pCeZfBiPwEfxVCE8J315pOSCxzw0Fin/G1MsxIw==",
+  "otherPublicKeyBase64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEvvkoRn1jgdls8I/ebavmPiDHNnB/Kh5MOsTT+w9wuPL+W5sfjgUSM1W06W+tSKWUVvoZunbnkIlQuOymiRVerA==",
+  "channel": "preview",
+  "version": "9.9.9-preview.1",
+  "packageBytesUtf8": "abc"
+ }
+}
