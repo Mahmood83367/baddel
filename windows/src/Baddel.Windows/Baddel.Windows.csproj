@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- WPF is referenced only for the managed UI Automation client. -->
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>Baddel.Windows</RootNamespace>
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Baddel.Core\Baddel.Core.csproj" />
+    <EmbeddedResource Include="..\..\..\shared\layouts\*.json" LinkBase="Layouts" LogicalName="Baddel.Layouts.%(Filename)%(Extension)" />
+    <InternalsVisibleTo Include="Baddel.Windows.Tests" />
+  </ItemGroup>
+</Project>

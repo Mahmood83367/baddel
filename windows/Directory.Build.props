@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <!-- Single source of truth for the version: the VERSION file at the repository root. -->
+    <BaddelVersion>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</BaddelVersion>
+    <Version>$(BaddelVersion)</Version>
+    <Company>Baddel</Company>
+    <Product>Baddel</Product>
+    <Copyright>Copyright (c) 2026 Mahmood</Copyright>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+</Project>
