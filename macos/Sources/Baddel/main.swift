@@ -55,6 +55,15 @@ if let index = CommandLine.arguments.firstIndex(of: "--login-item") {
     exit(0)
 }
 
+// `Baddel --reset-accessibility-entry` does what the "Remove Old Entry…" button
+// does after its confirmation: it removes Baddel's own entry from the
+// Accessibility list. It only ever removes a permission. Used by the checks.
+if CommandLine.arguments.contains("--reset-accessibility-entry") {
+    let removed = AccessibilityEntry.reset()
+    print("accessibilityEntryReset=\(removed)")
+    exit(removed ? 0 : 1)
+}
+
 // `Baddel --hotkey-coexistence-check` registers two hot keys the way the app
 // does (correction = id 1, clipboard = id 2) on two throwaway combinations,
 // presses each once, and checks that each press reaches only its own handler.

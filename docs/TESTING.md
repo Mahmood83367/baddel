@@ -25,7 +25,7 @@ CI has no signing identity; it is never published. All 28 checks passed.
 | Upgrade over the published 0.1.0 preview (downloaded and hash-checked): `/Applications` holds the new version, which verifies and starts | Passed |
 | A second old copy elsewhere on the disk was not touched (the package is not relocated to it) | Passed |
 | The new build's code identity differs from the old preview's, so the old Accessibility entry cannot apply | Passed |
-| The command behind "Remove Old Entry…" (`tccutil reset Accessibility app.baddel.Baddel`) succeeds | Passed |
+| "Remove Old Entry…": the app's own code clears Baddel's Accessibility entry (run through the installed app; the button itself was not clicked) | Passed |
 | Upgrade over the published 0.2.0, and installing the same version again | Passed |
 | Uninstall as documented: app and receipt are gone | Passed |
 

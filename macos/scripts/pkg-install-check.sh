@@ -93,7 +93,17 @@ if [ -n "$OLD" ] && [ -d "$OLD" ]; then
   NEW_HASH=$(cdhash "$APP")
   check "the code identity differs from the old preview's" "$([ -n "$OLD_HASH" ] && [ "$OLD_HASH" != "$NEW_HASH" ] && echo true || echo false)"
   say "NOTE because the identity differs, the old copy's Accessibility entry does not apply to the new one; the app offers Remove Old Entry"
-  check "the command behind Remove Old Entry succeeds" "$(yes_no tccutil reset Accessibility app.baddel.Baddel)"
+  # tccutil only accepts a bundle identifier that macOS has registered. In real
+  # use the button is clicked inside the running app, which is registered; on a
+  # fresh runner the app was only just copied, so it is registered explicitly
+  # here, and the app's own code path is used.
+  /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1
+  RESET=false
+  for _ in 1 2 3 4 5; do
+    if "$BIN" --reset-accessibility-entry >/dev/null 2>&1; then RESET=true; break; fi
+    sleep 2
+  done
+  check "Remove Old Entry clears Baddel's Accessibility entry (the app's own code path)" "$RESET"
   rm -rf "$HOME/Downloads/OldBaddel"
 else
   check "0.1.0 preview could be downloaded and verified" false
