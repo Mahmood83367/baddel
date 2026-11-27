@@ -171,8 +171,9 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     internal static extern int GetKeyboardLayoutList(int count, [Out] IntPtr[]? list);
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    internal static extern IntPtr LoadKeyboardLayoutW(string klid, uint flags);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool UnloadKeyboardLayout(IntPtr hkl);
 
     [DllImport("user32.dll")]
     internal static extern uint MapVirtualKeyExW(uint code, uint mapType, IntPtr hkl);

@@ -18,6 +18,17 @@ public sealed class InputLanguageSwitcher : ILayoutSwitcher
 
     private readonly IntPtr? fixedWindow;
 
+    /// <summary>
+    /// Keyboard layout ids (such as <c>00000409</c>) of the two layouts used for
+    /// conversion. When set, only an installed layout with exactly that id is
+    /// selected; a different layout of the same language is never substituted.
+    /// </summary>
+    /// <summary>Marks a layout that has no Windows layout behind it (a custom mapping): never switch.</summary>
+    public const string NoSystemLayout = "none";
+
+    public string? LatinKlid { get; set; }
+    public string? ArabicKlid { get; set; }
+
     public InputLanguageSwitcher()
     {
     }
@@ -63,9 +74,59 @@ public sealed class InputLanguageSwitcher : ILayoutSwitcher
 
     public Script? CurrentScript() => ScriptOf(LayoutOf(Window));
 
+    /// <summary>
+    /// The keyboard layout id behind an input locale handle. For ordinary layouts
+    /// the handle's high word is the layout's own language id; for the others it
+    /// is 0xF000 plus a "Layout Id" that the registry maps back to the layout.
+    /// </summary>
+    public static string? KlidOf(IntPtr layout)
+    {
+        var high = (int)((layout.ToInt64() >> 16) & 0xFFFF);
+        if ((high & 0xF000) != 0xF000) return high.ToString("X8", CultureInfo.InvariantCulture);
+        var wanted = (high & 0x0FFF).ToString("X4", CultureInfo.InvariantCulture);
+        try
+        {
+            using var root = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Keyboard Layouts");
+            if (root is null) return null;
+            foreach (var name in root.GetSubKeyNames())
+            {
+                using var key = root.OpenSubKey(name);
+                if (key?.GetValue("Layout Id") is string id && id.Equals(wanted, StringComparison.OrdinalIgnoreCase))
+                {
+                    return name.ToUpperInvariant();
+                }
+            }
+        }
+        catch (Exception)
+        {
+        }
+        return null;
+    }
+
+    /// <summary>The keyboard layout id active in the target window, or <c>null</c>.</summary>
+    public string? CurrentKlid()
+    {
+        var layout = LayoutOf(Window);
+        return layout == IntPtr.Zero ? null : KlidOf(layout);
+    }
+
+    public static bool IsInstalled(string klid) =>
+        InstalledLayouts().Any(candidate => string.Equals(KlidOf(candidate), klid, StringComparison.OrdinalIgnoreCase));
+
     public bool SelectLayout(Script script)
     {
-        var layout = InstalledLayouts().FirstOrDefault(candidate => ScriptOf(candidate) == script);
+        var klid = script == Script.Arabic ? ArabicKlid : LatinKlid;
+        IntPtr layout;
+        if (klid is not null)
+        {
+            // The same physical layout the conversion used, or nothing.
+            layout = InstalledLayouts().FirstOrDefault(
+                candidate => string.Equals(KlidOf(candidate), klid, StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            layout = InstalledLayouts().FirstOrDefault(candidate => ScriptOf(candidate) == script);
+        }
         return layout != IntPtr.Zero && Request(layout);
     }
 

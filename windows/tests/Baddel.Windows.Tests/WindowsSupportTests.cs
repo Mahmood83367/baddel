@@ -31,7 +31,7 @@ public class WindowsSupportTests
     {
         var store = EmbeddedLayouts.Load();
         var compared = 0;
-        foreach (var id in new[] { "us-english", "arabic-windows-101", "arabic-windows-102" })
+        foreach (var id in new[] { "us-english", "uk-english-windows", "arabic-windows-101", "arabic-windows-102" })
         {
             var layout = store.Get(id);
             var dumped = LayoutDumper.Dump(layout.PlatformIds["windows"][0]);
@@ -48,7 +48,49 @@ public class WindowsSupportTests
                 Assert.Equal(dumped.Select(k => $"{k.Code}|{k.Base}|{k.Shift}"), translated.Select(k => $"{k.Code}|{k.Base}|{k.Shift}"));
             }
         }
-        Assert.Equal(3, compared);
+        Assert.Equal(4, compared);
+    }
+
+    [Fact]
+    public void EnglishAndArabicAreBothManualChoicesWithCompatibleDefaults()
+    {
+        var store = EmbeddedLayouts.Load();
+        // Defaults are what 0.1.0 used.
+        var defaults = EmbeddedLayouts.Pair(store, null, null);
+        Assert.Equal("us-english", defaults.Latin.Id);
+        Assert.Equal("arabic-windows-101", defaults.Arabic.Id);
+        Assert.Equal("us-english", new AppSettings().EnglishLayout);
+        Assert.Equal("us-english", AppSettings.Parse("{ \"ArabicLayout\": \"arabic-windows-102\" }").EnglishLayout);
+
+        var chosen = EmbeddedLayouts.Pair(store, "arabic-windows-102", "uk-english-windows");
+        Assert.Equal("uk-english-windows", chosen.Latin.Id);
+        Assert.Equal("00000809", EmbeddedLayouts.Klid(chosen.Latin));
+        Assert.Equal("00010401", EmbeddedLayouts.Klid(chosen.Arabic));
+
+        // The macOS British table is a different layout and is never offered or used on Windows.
+        Assert.Equal("us-english", EmbeddedLayouts.Pair(store, null, "uk-english-mac").Latin.Id);
+        Assert.DoesNotContain(EmbeddedLayouts.Choices(store, Script.Latin), layout => layout.Id == "uk-english-mac");
+        Assert.DoesNotContain(EmbeddedLayouts.Choices(store, Script.Arabic), layout => layout.Id is "arabic-mac" or "arabic-pc");
+        Assert.Equal(new[] { "uk-english-windows", "us-english" }, EmbeddedLayouts.Choices(store, Script.Latin).Select(l => l.Id).ToArray());
+        // A wrong-script choice falls back.
+        Assert.Equal("us-english", EmbeddedLayouts.Pair(store, null, "arabic-windows-101").Latin.Id);
+
+        // The UK and US tables are different data, and the pound key shows it.
+        var uk = new LayoutConverter(chosen.Latin, store.Get("arabic-windows-101"));
+        var us = new LayoutConverter(store.Get("us-english"), store.Get("arabic-windows-101"));
+        Assert.NotEqual(uk.Convert("#"), us.Convert("#"));
+    }
+
+    [Fact]
+    public void LayoutIdFromInputLocaleHandle()
+    {
+        Assert.Equal("00000409", InputLanguageSwitcher.KlidOf(new IntPtr(0x04090409)));
+        Assert.Equal("00000809", InputLanguageSwitcher.KlidOf(new IntPtr(0x08090809)));
+        // Arabic (101) attached to the Iraqi Arabic language.
+        Assert.Equal("00000401", InputLanguageSwitcher.KlidOf(new IntPtr(0x04010801)));
+        // A layout referenced through its registry "Layout Id" resolves to a registered layout.
+        var resolved = InputLanguageSwitcher.KlidOf(new IntPtr(unchecked((int)0xF0280401)));
+        Assert.True(resolved is null || LayoutDumper.LayoutFile(resolved) is not null);
     }
 
     [Fact]

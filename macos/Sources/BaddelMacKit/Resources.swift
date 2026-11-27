@@ -23,10 +23,29 @@ public enum BaddelResources {
         return candidates.first { fileManager.fileExists(atPath: $0.appendingPathComponent("us-english.json").path) }
     }
 
+    /// Where a user can place their own layout files:
+    /// `~/Library/Application Support/Baddel/Layouts`, or the folder named by
+    /// `BADDEL_CUSTOM_LAYOUTS_DIR`.
+    public static var customLayoutsDirectory: URL {
+        if let override = ProcessInfo.processInfo.environment["BADDEL_CUSTOM_LAYOUTS_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override)
+        }
+        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support")
+        return support.appendingPathComponent("Baddel/Layouts", isDirectory: true)
+    }
+
+    /// The built-in layouts plus any valid user-supplied ones. Invalid files
+    /// are skipped; the built-in layouts are never changed.
     public static func loadLayouts() throws -> LayoutStore {
         guard let directory = layoutsDirectory() else { throw LayoutStore.LoadError.noLayouts }
-        return try LayoutStore(directory: directory)
+        let builtIn = try LayoutStore(directory: directory)
+        let (store, reports) = builtIn.addingCustomLayouts(from: customLayoutsDirectory)
+        lastCustomLayoutReports = reports
+        return store
     }
+
+    public private(set) static var lastCustomLayoutReports: [CustomLayoutReport] = []
 }
 
 /// Writes diagnostics to the unified log. Records are built from

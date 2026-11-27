@@ -85,6 +85,7 @@ final class CorrectionCoordinator {
         forgetUndo()
 
         switcher.preferredArabicLayoutID = settings.arabicLayoutID
+        switcher.preferredEnglishLayoutID = settings.englishLayoutID
         focus.pasteFallback = settings.pasteFallbackEnabled ? PasteFallback() : nil
         guard let pair = switcher.resolvePair() else { return }
         let engine = CorrectionEngine(planner: CorrectionPlanner(pair: pair), focus: focus, layouts: switcher)

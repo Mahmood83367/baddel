@@ -23,6 +23,7 @@ let keys: [(code: String, mac: UInt16)] = [
 
 let layouts: [(file: String, id: String, name: String, script: String, sourceIDs: [String], windowsIDs: [String])] = [
     ("us-english", "us-english", "US English", "latin", ["com.apple.keylayout.US", "com.apple.keylayout.ABC"], ["00000409"]),
+    ("uk-english-mac", "uk-english-mac", "UK English (macOS)", "latin", ["com.apple.keylayout.British"], []),
     ("arabic-mac", "arabic-mac", "Arabic (macOS)", "arabic", ["com.apple.keylayout.Arabic"], []),
     ("arabic-pc", "arabic-pc", "Arabic – PC", "arabic", ["com.apple.keylayout.ArabicPC"], []),
 ]
