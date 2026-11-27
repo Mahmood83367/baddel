@@ -108,3 +108,35 @@ jobs:
           name: windows-desktop-check-results
           path: dist/desktop-checks.txt
           if-no-files-found: ignore
+
+  # Prototype. Not a required check. The session is X11 under Xvfb with a
+  # window manager; it is not a person's desktop and it is not Wayland.
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install session dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb xdotool openbox dbus-x11 at-spi2-core libatspi2.0-0 libatspi2.0-dev \
+            libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas
+      - name: Test core on Linux
+        run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
+      - name: Check AT-SPI constants against the installed header
+        run: python3 linux/scripts/check-atspi-constants.py
+      - name: Build
+        run: dotnet publish linux/src/Baddel.Linux/Baddel.Linux.csproj -c Release -r linux-x64 --self-contained true -o out/linux
+      - name: X11 smoke test
+        run: |
+          mkdir -p dist
+          RESULTS_FILE="$PWD/dist/linux-x11-smoke.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
+            linux/scripts/x11-smoke.sh out/linux/baddel
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-x11-smoke-results
+          path: dist/linux-x11-smoke.txt
+          if-no-files-found: ignore
