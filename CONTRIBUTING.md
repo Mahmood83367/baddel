@@ -38,6 +38,10 @@ dotnet test linux/tests/Baddel.Linux.Tests/Baddel.Linux.Tests.csproj   # on Linu
 - Layout data is generated from the operating system's own tables
   (`tools/dump-macos-layouts.swift`, `baddel-wincheck --dump-layouts`). Do not
   hand-edit it, and do not assume two layouts match because their names do.
+- The terminal integrations (`shared/shell/`, `TextFix` in both cores) share
+  [`shared/fixtures/text-fix.json`](shared/fixtures/text-fix.json). Their
+  end-to-end checks are `tools/terminal-check.py zsh|bash|pwsh|claude`, which
+  start a separate shell or Claude Code with a throwaway configuration.
 - Test fixtures must be clearly synthetic. Never commit real typed text,
   personal data, credentials or machine names.
 - Diagnostics must never contain text read from or written to a field.
