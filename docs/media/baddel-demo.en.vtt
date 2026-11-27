@@ -1,0 +1,25 @@
+WEBVTT
+
+1
+00:00.000 --> 00:02.000
+Baddel fixes text typed with the wrong keyboard layout. (Illustrated demo.)
+
+2
+00:02.000 --> 00:06.000
+You meant to write Arabic, but the keyboard was on English: "hgsghl ugd;l".
+
+3
+00:06.000 --> 00:10.000
+Press the shortcut once: Baddel fixes the last word, or the selected text, and switches the keyboard to Arabic.
+
+4
+00:10.000 --> 00:13.500
+Click Undo to restore the original text and the previous keyboard layout.
+
+5
+00:13.500 --> 00:19.000
+Press the shortcut twice quickly: Baddel fixes the whole field and switches the keyboard to Arabic.
+
+6
+00:19.000 --> 00:23.000
+Shortcut: Option-Shift-Space on macOS, Control-Alt-Space on Windows and Linux. Download: mahmoood.com/baddel

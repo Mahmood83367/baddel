@@ -61,7 +61,7 @@ Install
   outside this folder except your settings (%APPDATA%\Baddel\settings.json).
   1. Extract the whole folder somewhere you can keep it, for example
      %LOCALAPPDATA%\Programs\Baddel.
-  2. Run Baddel.exe. It appears as a blue icon in the notification area.
+  2. Run Baddel.exe. It appears as an icon in the notification area.
   3. If Windows SmartScreen shows a warning, that is Windows protecting you
      from software it cannot identify because this build is not code-signed.
      Only if you trust this download: choose "More info", then "Run anyway".
