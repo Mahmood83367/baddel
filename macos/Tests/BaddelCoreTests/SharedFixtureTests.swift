@@ -5,7 +5,9 @@ import XCTest
 /// implementation runs as well.
 final class SharedFixtureTests: XCTestCase {
     func testLayoutsLoad() {
-        XCTAssertEqual(Set(Shared.store.layouts.keys), ["us-english", "arabic-mac", "arabic-pc"])
+        XCTAssertEqual(
+            Set(Shared.store.layouts.keys),
+            ["us-english", "arabic-mac", "arabic-pc", "arabic-windows-101", "arabic-windows-102"])
         for layout in Shared.store.layouts.values {
             XCTAssertEqual(layout.keys.count, 47, layout.id)
             XCTAssertEqual(Set(layout.keys.map(\.code)).count, 47, layout.id)

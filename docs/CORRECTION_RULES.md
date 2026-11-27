@@ -1,7 +1,7 @@
 # Correction rules
 
-These rules are implemented in `BaddelCore` (Swift) and `Baddel.Core` (C#) and
-are pinned by [`shared/fixtures/cases.json`](../shared/fixtures/cases.json).
+These rules are implemented in `BaddelCore` (Swift) and `Baddel.Core` (C#), are
+the same on macOS and Windows, and are pinned by [`shared/fixtures/cases.json`](../shared/fixtures/cases.json).
 
 ## What gets corrected
 
@@ -35,8 +35,10 @@ target layout.
   the same key is used: on the macOS Arabic layout `Fhf` becomes `باب`.
 - Anything the source layout cannot type — emoji, other scripts, whitespace —
   passes through unchanged.
-- Digits follow the layout. Both Arabic layouts type Arabic-Indic digits, so
-  `2024` typed on the wrong layout becomes `٢٠٢٤` and back.
+- Digits follow the layout. The macOS Arabic layouts type Arabic-Indic digits,
+  so there `2024` typed on the wrong layout becomes `٢٠٢٤` and back. The
+  Windows Arabic layouts type the same digits as the US layout, so digits are
+  left alone on Windows.
 
 **Known ambiguity.** On Arabic-PC, `لا` can come from the single key `b` or
 from `g` then `h`. Converting Arabic back to English picks `b`, which is the

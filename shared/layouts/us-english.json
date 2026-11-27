@@ -2,7 +2,7 @@
   "id": "us-english",
   "name": "US English",
   "script": "latin",
-  "platformIds": { "macos": ["com.apple.keylayout.US", "com.apple.keylayout.ABC"] },
+  "platformIds": { "macos": ["com.apple.keylayout.US", "com.apple.keylayout.ABC"], "windows": ["00000409"] },
   "keys": [
     { "code": "Backquote", "base": "`", "shift": "~" },
     { "code": "Digit1", "base": "1", "shift": "!" },

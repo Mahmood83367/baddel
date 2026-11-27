@@ -10,3 +10,5 @@ bin/
 obj/
 *.user
 .vs/
+# Release packages
+dist/

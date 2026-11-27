@@ -62,6 +62,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let preferences = NSMenuItem(title: "Settings…", action: #selector(showPreferences), keyEquivalent: ",")
         preferences.target = self
         menu.addItem(preferences)
+        let about = NSMenuItem(title: "About Baddel", action: #selector(showAbout), keyEquivalent: "")
+        about.target = self
+        menu.addItem(about)
         menu.addItem(NSMenuItem(title: "Quit Baddel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
@@ -94,7 +97,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         preferencesWindow.present()
     }
 
+    /// The standard About panel, with the copyright and license notice.
+    @objc private func showAbout() {
+        let credits = NSAttributedString(
+            string: """
+                Fixes text typed with the wrong keyboard layout (Arabic / English).
+
+                Released under the MIT License. The full license text is in the LICENSE file \
+                distributed with this app. Copies and forks that redistribute Baddel must keep \
+                this copyright notice and the license notice.
+
+                \(AppInfo.projectURL)
+                """,
+            attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.labelColor])
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "Baddel",
+            .applicationVersion: AppInfo.version,
+            .version: "",
+            .credits: credits,
+            NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): AppInfo.copyright,
+        ])
+    }
+
     @objc private func undoLast() {
         coordinator?.undoLast()
+    }
+}
+
+enum AppInfo {
+    static let copyright = "Copyright (c) 2026 Mahmood"
+    static let projectURL = "https://github.com/Mahmood83367/baddel"
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "development build"
     }
 }

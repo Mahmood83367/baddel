@@ -64,11 +64,16 @@ public sealed class LayoutStore
     public IReadOnlyDictionary<string, KeyboardLayout> Layouts { get; }
 
     public LayoutStore(string directory)
-    {
-        Layouts = Directory.GetFiles(directory, "*.json")
+        : this(Directory.GetFiles(directory, "*.json")
             .OrderBy(path => path, StringComparer.Ordinal)
-            .Select(path => KeyboardLayout.Parse(File.ReadAllText(path)))
-            .ToDictionary(layout => layout.Id);
+            .Select(File.ReadAllText))
+    {
+    }
+
+    /// <summary>Builds a store from layout JSON documents (for example embedded resources).</summary>
+    public LayoutStore(IEnumerable<string> documents)
+    {
+        Layouts = documents.Select(KeyboardLayout.Parse).ToDictionary(layout => layout.Id);
     }
 
     public KeyboardLayout Get(string id) => Layouts[id];

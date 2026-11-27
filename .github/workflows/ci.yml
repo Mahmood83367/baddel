@@ -4,10 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# Every job runs on a GitHub-hosted runner. No self-hosted runner is attached
+# to this repository, so code from pull requests never runs on a private machine.
 jobs:
   macos:
     runs-on: macos-15
@@ -19,6 +22,26 @@ jobs:
       - name: Test
         run: swift test
         working-directory: macos
+      - name: Package (universal, ad-hoc signed)
+        run: ./scripts/package-release.sh
+        working-directory: macos
+      - name: Check package
+        run: |
+          cd dist
+          shasum -a 256 -c Baddel-*-macos-universal.zip.sha256
+          mkdir check && ditto -x -k Baddel-*-macos-universal.zip check
+          cd check/Baddel-*-macos-universal
+          shasum -a 256 -c SHA256SUMS.txt
+          grep -q "Copyright (c) 2026 Mahmood" LICENSE
+          codesign --verify --strict Baddel.app
+          lipo -archs Baddel.app/Contents/MacOS/Baddel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baddel-macos
+          path: |
+            dist/Baddel-*-macos-universal.zip
+            dist/Baddel-*-macos-universal.zip.sha256
+          if-no-files-found: error
 
   windows-core:
     runs-on: windows-latest
@@ -27,5 +50,61 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - name: Test
+      - name: Test core
         run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
+      - name: Build app
+        run: dotnet build windows/src/Baddel.App/Baddel.App.csproj -c Release
+      - name: Build check tool
+        run: dotnet build windows/src/Baddel.WinCheck/Baddel.WinCheck.csproj -c Release
+      - name: Test Windows integration layer
+        run: dotnet test windows/tests/Baddel.Windows.Tests/Baddel.Windows.Tests.csproj
+
+  windows-app:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Package (self-contained x64, not code-signed)
+        shell: pwsh
+        run: ./windows/scripts/package-release.ps1
+      - name: Check package
+        shell: pwsh
+        run: |
+          $zip = Get-Item dist/Baddel-*-windows-x64.zip
+          $expected = ((Get-Content "$($zip.FullName).sha256") -split '  ')[0]
+          if ((Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() -ne $expected) { throw "zip hash mismatch" }
+          Expand-Archive $zip dist/check
+          $dir = (Get-ChildItem dist/check -Directory)[0].FullName
+          foreach ($line in Get-Content "$dir/SHA256SUMS.txt") {
+            $hash, $file = $line -split '  '
+            if ((Get-FileHash "$dir/$file" -Algorithm SHA256).Hash.ToLower() -ne $hash) { throw "hash mismatch: $file" }
+          }
+          if (-not (Select-String -Path "$dir/LICENSE.txt" -Pattern 'Copyright \(c\) 2026 Mahmood' -Quiet)) { throw "license notice missing" }
+          "PACKAGED_EXE=$dir/Baddel.exe" | Out-File $env:GITHUB_ENV -Append
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baddel-windows
+          path: |
+            dist/Baddel-*-windows-x64.zip
+            dist/Baddel-*-windows-x64.zip.sha256
+          if-no-files-found: error
+      # The hosted runner has a desktop session but only an English keyboard
+      # layout, so layout switching is not exercised here.
+      - name: Desktop checks against the packaged app
+        shell: pwsh
+        run: |
+          dotnet build windows/src/Baddel.WinCheck/Baddel.WinCheck.csproj -c Release --nologo -v q
+          $tool = "windows/src/Baddel.WinCheck/bin/Release/net8.0-windows/baddel-wincheck.exe"
+          $out = Join-Path $env:RUNNER_TEMP "desktop-checks.txt"
+          $process = Start-Process $tool -ArgumentList "--engine", "--e2e", "`"$env:PACKAGED_EXE`"", "--out", "`"$out`"" -Wait -PassThru
+          Get-Content $out
+          Copy-Item $out dist/desktop-checks.txt
+          exit $process.ExitCode
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-desktop-check-results
+          path: dist/desktop-checks.txt
+          if-no-files-found: ignore
