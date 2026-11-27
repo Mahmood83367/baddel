@@ -363,8 +363,23 @@ internal static class Messages
 
 internal static class TrayIcon
 {
-    /// <summary>Draws the icon at run time so the repository needs no binary assets.</summary>
+    /// <summary>
+    /// The application's own icon (the logo compiled into Baddel.exe). If Windows
+    /// cannot provide it, a simple icon is drawn instead.
+    /// </summary>
     public static Icon Create()
+    {
+        try
+        {
+            if (Environment.ProcessPath is { } path && Icon.ExtractAssociatedIcon(path) is { } icon) return icon;
+        }
+        catch (Exception)
+        {
+        }
+        return Draw();
+    }
+
+    private static Icon Draw()
     {
         using var bitmap = new Bitmap(32, 32);
         using (var graphics = Graphics.FromImage(bitmap))

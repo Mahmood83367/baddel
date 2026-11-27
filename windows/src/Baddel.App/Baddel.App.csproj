@@ -10,6 +10,7 @@
     <AssemblyName>Baddel</AssemblyName>
     <RootNamespace>Baddel.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Baddel.ico</ApplicationIcon>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
   <ItemGroup>

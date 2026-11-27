@@ -1,5 +1,6 @@
 import AppKit
 import BaddelCore
+import BaddelMacKit
 
 /// A button that records a new shortcut. Key events are observed only while
 /// recording, and only when they are delivered to Baddel's own window.
@@ -97,6 +98,8 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         ], script: .arabic)
     }
 
+    private let loginCheckbox = NSButton(checkboxWithTitle: "Open Baddel at login", target: nil, action: nil)
+    private let loginStatus = NSTextField(wrappingLabelWithString: "")
     private let channelPopup = NSPopUpButton()
     private let autoCheckCheckbox = NSButton(
         checkboxWithTitle: "Check for updates once a day (never downloads or installs)", target: nil, action: nil)
@@ -143,6 +146,12 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         channelPopup.target = self
         channelPopup.action = #selector(changed)
         autoCheckCheckbox.state = settings.checksForUpdatesAutomatically ? .on : .off
+        loginCheckbox.target = self
+        loginCheckbox.action = #selector(loginItemChanged)
+        loginStatus.textColor = .secondaryLabelColor
+        loginStatus.font = .systemFont(ofSize: 11)
+        loginStatus.preferredMaxLayoutWidth = 330
+        refreshLoginItem()
         for checkbox in [switchCheckbox, pasteCheckbox, autoCheckCheckbox] {
             checkbox.target = self
             checkbox.action = #selector(changed)
@@ -162,6 +171,8 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
             [NSGridCell.emptyContentView, switchCheckbox],
             [NSGridCell.emptyContentView, pasteCheckbox],
             [NSGridCell.emptyContentView, pasteNote],
+            [NSTextField(labelWithString: "Startup:"), loginCheckbox],
+            [NSGridCell.emptyContentView, loginStatus],
             [NSTextField(labelWithString: "Updates:"), channelPopup],
             [NSGridCell.emptyContentView, autoCheckCheckbox],
         ])
@@ -187,6 +198,40 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     func present() {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Shows what macOS reports, so the checkbox never claims more than is true.
+    private func refreshLoginItem() {
+        let state = LoginItem.state
+        loginCheckbox.state = state == .enabled || state == .requiresApproval ? .on : .off
+        loginCheckbox.isEnabled = LoginItem.isInstalledCopy || state != .disabled
+        switch state {
+        case .enabled:
+            loginStatus.stringValue = "Baddel opens when you log in. Turn this off here, or in System Settings → General → Login Items."
+        case .requiresApproval:
+            loginStatus.stringValue = "macOS is waiting for you to allow Baddel in System Settings → General → Login Items."
+        case .disabled, .notFound:
+            loginStatus.stringValue = LoginItem.isInstalledCopy
+                ? "Off. Baddel starts only when you open it."
+                : "Available when Baddel is installed in the Applications folder."
+        }
+    }
+
+    @objc private func loginItemChanged() {
+        switch LoginItem.set(loginCheckbox.state == .on) {
+        case .success(.requiresApproval):
+            LoginItem.openSystemSettings()
+        case .success:
+            break
+        case .failure:
+            NSSound.beep()
+        }
+        refreshLoginItem()
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        // The user may have changed it in System Settings meanwhile.
+        refreshLoginItem()
     }
 
     func windowWillClose(_ notification: Notification) {

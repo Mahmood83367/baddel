@@ -42,6 +42,50 @@ The scripts never weaken an operating-system protection: they do not remove
 quarantine attributes, add Gatekeeper or SmartScreen exceptions, or change
 security settings.
 
+## The macOS installer package
+
+`macos/scripts/package-pkg.sh` builds an installer for `/Applications/Baddel.app`.
+Its file name says what it is:
+
+| File | Meaning |
+|---|---|
+| `Baddel-<version>-macos-universal.pkg` | Signed with a Developer ID Installer identity **and** notarized. The only form that may be published. |
+| `Baddel-<version>-macos-universal-TEST-ONLY-unsigned.pkg` | No signature. Validation only. |
+| `Baddel-<version>-macos-universal-TEST-ONLY-not-notarized.pkg` | Signed but not notarized. Validation only. |
+
+**An installer that is not signed and notarized is never attached to a
+release.** macOS refuses to open such a package normally, and telling users to
+get around that is not acceptable. Until a signed one exists, the ZIP remains
+the macOS download.
+
+What a signed installer needs, all already present in the keychain of the
+machine that builds the release (the script uses them in place and reads no
+credential):
+
+| Variable | What it names | Status on the release machine |
+|---|---|---|
+| `BADDEL_SIGN_IDENTITY` | Developer ID **Application** identity, signs the app | Present (Health360 team) |
+| `BADDEL_INSTALLER_IDENTITY` | Developer ID **Installer** identity, signs the package | **Missing** |
+| `BADDEL_NOTARY_PROFILE` | `notarytool` keychain profile for the same team | **Not configured** |
+
+A signing identity is not a notarization credential; the profile is separate
+and is created once with `xcrun notarytool store-credentials`.
+
+CI has none of these, so its macOS package is the ad-hoc ZIP and its installer
+is the `TEST-ONLY-unsigned` build, used to test installing on the runner.
+A signed macOS release is therefore built on the release machine, from the
+release commit:
+
+```bash
+cd macos
+BADDEL_SIGN_IDENTITY="Developer ID Application: …" ./scripts/package-release.sh
+BADDEL_INSTALLER_IDENTITY="Developer ID Installer: …" BADDEL_NOTARY_PROFILE="…" ./scripts/package-pkg.sh
+```
+
+When a release is signed with the Health360 team's identity, say so in the
+release notes, and say that a later change of signing team would require
+users to approve Accessibility once more.
+
 ## Build the packages
 
 From a clean checkout of `main` at the commit being released.
