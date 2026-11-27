@@ -179,7 +179,7 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern int ToUnicodeEx(
-        uint virtualKey, uint scanCode, byte[] keyState, StringBuilder buffer, int bufferSize, uint flags, IntPtr hkl);
+        uint virtualKey, uint scanCode, byte[] keyState, [Out] char[] buffer, int bufferSize, uint flags, IntPtr hkl);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

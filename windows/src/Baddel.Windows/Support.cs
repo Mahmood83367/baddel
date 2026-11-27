@@ -327,9 +327,14 @@ public static class LayoutDumper
     {
         var state = new byte[256];
         if (shift) state[NativeMethods.VK_SHIFT] = 0x80;
-        var buffer = new System.Text.StringBuilder(8);
+        // The API does not null-terminate its output, so a plain array is used
+        // and exactly `count` characters are taken.
+        var buffer = new char[8];
         // Flag 4: do not change the keyboard state kept by the system.
-        var count = NativeMethods.ToUnicodeEx(virtualKey, scan, state, buffer, buffer.Capacity, 4, layout);
-        return count > 0 ? buffer.ToString(0, count) : string.Empty;
+        var count = NativeMethods.ToUnicodeEx(virtualKey, scan, state, buffer, buffer.Length, 4, layout);
+        if (count <= 0) return string.Empty;
+        var text = new string(buffer, 0, Math.Min(count, buffer.Length));
+        // Keys with no character report a control code or NUL; treat as empty.
+        return text.Length == 1 && text[0] < 0x20 ? string.Empty : text;
     }
 }
