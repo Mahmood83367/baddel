@@ -10,6 +10,8 @@
     <string>app.baddel.Baddel</string>
     <key>CFBundleExecutable</key>
     <string>Baddel</string>
+    <key>CFBundleIconFile</key>
+    <string>Baddel</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

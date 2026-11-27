@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<installer-gui-script minSpecVersion="2">
+    <title>Baddel</title>
+    <welcome file="welcome.html" mime-type="text/html"/>
+    <license file="license.txt"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+    <!-- One fixed destination: the startup volume's Applications folder. -->
+    <options customize="never" require-scripts="false" hostArchitectures="arm64,x86_64"/>
+    <domains enable_anywhere="false" enable_currentUserHome="false" enable_localSystem="true"/>
+    <volume-check>
+        <allowed-os-versions>
+            <os-version min="13.0"/>
+        </allowed-os-versions>
+    </volume-check>
+    <choices-outline>
+        <line choice="app"/>
+    </choices-outline>
+    <choice id="app" visible="false">
+        <pkg-ref id="app.baddel.Baddel.pkg"/>
+    </choice>
+    <pkg-ref id="app.baddel.Baddel.pkg" version="__VERSION__" onConclusion="none">component.pkg</pkg-ref>
+    <!-- Installer asks the user to quit Baddel, identified by its bundle
+         identifier, before it is replaced. The package runs no script. -->
+    <pkg-ref id="app.baddel.Baddel.pkg">
+        <must-close>
+            <app id="app.baddel.Baddel"/>
+        </must-close>
+    </pkg-ref>
+</installer-gui-script>

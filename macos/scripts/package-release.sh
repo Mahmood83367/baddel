@@ -50,7 +50,8 @@ Requirements: macOS 13 or later, Apple silicon or Intel.
 This build is $SIGNING.
 
 Install
-  1. Move Baddel.app to your Applications folder and open it.
+  1. Move Baddel.app to your Applications folder and open it. Keep one copy,
+     in Applications. It appears as a keyboard icon in the menu bar.
   2. If macOS refuses to open it because it cannot check the developer, that
      is Gatekeeper doing its job for software that is not notarized. Only if
      you trust this download: open System Settings > Privacy & Security, find
@@ -59,6 +60,19 @@ Install
   3. Baddel asks for Accessibility access, which it needs to read and replace
      text in other apps. Enable it yourself in System Settings > Privacy &
      Security > Accessibility.
+  4. Upgrading from an earlier preview: if Baddel is already listed and
+     switched on there but its window still says access is not granted, click
+     "Remove Old Entry..." in that window, then turn Baddel on again. Delete
+     old copies kept outside Applications.
+
+Open at login (optional, off by default)
+  Menu bar icon > Settings > "Open Baddel at login". Turn it off in the same
+  place or in System Settings > General > Login Items.
+
+Uninstall
+  Turn off "Open Baddel at login", quit Baddel, and move it to the Trash.
+  Settings:  defaults delete app.baddel.Baddel
+  Stored data: ~/Library/Application Support/Baddel
 
 Use
   Shortcut (default Option-Shift-Space):

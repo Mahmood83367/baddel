@@ -37,6 +37,33 @@ if let index = CommandLine.arguments.firstIndex(of: "--check-updates") {
     exit(finished ? 0 : 1)
 }
 
+// `Baddel --login-item status|enable|disable` reports or changes "Open at
+// login" exactly as the Settings checkbox does, and prints what macOS reports.
+// Enabling is refused unless this is the copy in /Applications.
+if let index = CommandLine.arguments.firstIndex(of: "--login-item") {
+    let action = CommandLine.arguments.dropFirst(index + 1).first ?? "status"
+    print("installedCopy=\(LoginItem.isInstalledCopy) path=\(Bundle.main.bundleURL.path == LoginItem.canonicalPath ? "canonical" : "other")")
+    switch action {
+    case "enable", "disable":
+        switch LoginItem.set(action == "enable") {
+        case .success(let state): print("\(action)=ok state=\(state.rawValue)")
+        case .failure(let failure): print("\(action)=refused reason=\(failure) state=\(LoginItem.state.rawValue)")
+        }
+    default:
+        print("state=\(LoginItem.state.rawValue)")
+    }
+    exit(0)
+}
+
+// `Baddel --reset-accessibility-entry` does what the "Remove Old Entry…" button
+// does after its confirmation: it removes Baddel's own entry from the
+// Accessibility list. It only ever removes a permission. Used by the checks.
+if CommandLine.arguments.contains("--reset-accessibility-entry") {
+    let removed = AccessibilityEntry.reset()
+    print("accessibilityEntryReset=\(removed)")
+    exit(removed ? 0 : 1)
+}
+
 // `Baddel --hotkey-coexistence-check` registers two hot keys the way the app
 // does (correction = id 1, clipboard = id 2) on two throwaway combinations,
 // presses each once, and checks that each press reaches only its own handler.

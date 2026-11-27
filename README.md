@@ -1,6 +1,8 @@
+<img src="docs/media/baddel-logo.png" alt="Baddel logo" width="96">
+
 # Baddel | بدّل
 
-[العربي](README.ar.md) · [Download on Cloudflare](https://baddel.mahmood94abdelbary.workers.dev) · [GitHub releases](https://github.com/Mahmood83367/baddel/releases)
+[العربي](README.ar.md) · [Download page](https://mahmoood.com/baddel) · [GitHub releases](https://github.com/Mahmood83367/baddel/releases)
 
 Baddel fixes Arabic or English text typed with the wrong keyboard layout. If you meant to type `عليكم` and got `ugd;l`, press the shortcut to fix it in place and keep typing. بدّل أداة مفتوحة المصدر لتصحيح الكتابة بين الكيبورد العربي والإنكليزي.
 
@@ -22,15 +24,29 @@ Use a supported, editable text field. Baddel skips password fields and fields it
 
 ## Download and install
 
-Get the matching archive from [GitHub releases](https://github.com/Mahmood83367/baddel/releases). The [Cloudflare page](https://baddel.mahmood94abdelbary.workers.dev) links to public downloads. Check the release notes for signing status and the corresponding SHA-256 file. The `0.1.0` preview contains macOS and Windows correction. This guide also covers the clipboard, additional layouts, and Linux in newer builds.
+Get the matching archive from [GitHub releases](https://github.com/Mahmood83367/baddel/releases). The [download page](https://mahmoood.com/baddel) lists the current packages for each platform with their checksums. Check the release notes for signing status and the corresponding SHA-256 file. The `0.1.0` preview contains macOS and Windows correction. This guide also covers the clipboard, additional layouts, and Linux in newer builds.
 
 ### macOS
 
-1. Unzip the macOS universal archive and move `Baddel.app` to **Applications**.
-2. Open Baddel and grant **Accessibility** under **System Settings → Privacy & Security**. Baddel uses that access to edit the focused text field.
-3. Open a text editor, type a test word with the wrong keyboard enabled, and press `⌥⇧Space`.
+The steps below describe the current version; the notes say where `0.2.0` and earlier differ.
 
-For a build without Apple notarization, which includes the `0.1.0` preview, check its published SHA-256 before deciding to use Apple's option to [open a trusted app once](https://support.apple.com/en-us/102445).
+1. **Install.** Use the installer (`.pkg`) when a release offers one: open it and it puts Baddel in **Applications**. A `.pkg` is only published when it is signed with an Apple Developer ID and notarized by Apple. Otherwise unzip the macOS universal archive and move `Baddel.app` to **Applications** yourself. Keep one copy, in Applications.
+2. **Open Baddel** from Applications. It lives in the menu bar as a keyboard icon and has no Dock icon.
+3. **Grant Accessibility.** Baddel shows a window that opens **System Settings → Privacy & Security → Accessibility**. Turn Baddel on there. It uses that access to edit the focused text field.
+4. **Try it.** Type a test word with the wrong keyboard enabled and press `⌥⇧Space`.
+
+**Upgrading from an earlier preview.** Earlier previews were not signed with a developer identity, so macOS treats each of them as a different app. If Baddel is already listed and switched on under Accessibility but its window still says access is not granted, the entry belongs to the old copy:
+
+- **Baddel 0.2.1 or later:** click **Remove Old Entry…** in that window, then turn Baddel on again.
+- **Baddel 0.2.0 or 0.1.0:** that button does not exist yet. In **System Settings → Privacy & Security → Accessibility**, select Baddel in the list, press the **–** button, then add Baddel again.
+
+Delete old copies you kept outside Applications.
+
+**Open at login (optional, 0.2.1 or later).** Menu bar icon → **Settings** → **Open Baddel at login**. It is off unless you turn it on, and only works for the copy in Applications. Turn it off in the same place or under **System Settings → General → Login Items**.
+
+**Uninstall.** Turn off **Open Baddel at login**, quit Baddel, and move it from Applications to the Trash. The [macOS guide](docs/MACOS.md) lists the settings and history files you can also remove.
+
+For a build without Apple notarization, which includes the `0.1.0` and `0.2.0` previews, check its published SHA-256 before deciding to use Apple's option to [open a trusted app once](https://support.apple.com/en-us/102445).
 
 ### Windows
 

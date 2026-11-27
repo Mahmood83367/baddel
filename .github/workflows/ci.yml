@@ -75,6 +75,23 @@ jobs:
             dist/Baddel-*-macos-universal.zip
             dist/Baddel-*-macos-universal.zip.sha256
           if-no-files-found: error
+      # CI has no signing identity, so this package is unsigned and exists only
+      # to test installing. It is uploaded under a name that says so, and it is
+      # never a release asset.
+      - name: Build the installer package (unsigned, test only)
+        run: ./scripts/package-pkg.sh
+        working-directory: macos
+      - name: Install, upgrade, Open at Login and uninstall on this throwaway runner
+        run: macos/scripts/pkg-install-check.sh dist/Baddel-*-TEST-ONLY-unsigned.pkg "$PWD/dist/macos-installer-checks.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-installer-TEST-ONLY-unsigned
+          path: |
+            dist/Baddel-*-TEST-ONLY-unsigned.pkg
+            dist/Baddel-*-TEST-ONLY-unsigned.pkg.sha256
+            dist/macos-installer-checks.txt
+          if-no-files-found: ignore
 
   windows-core:
     runs-on: windows-latest

@@ -34,6 +34,7 @@ for layout in us-english uk-english-mac arabic-mac arabic-pc; do
   cp "../shared/layouts/$layout.json" "$APP/Contents/Resources/layouts/"
 done
 cp ../LICENSE "$APP/Contents/Resources/LICENSE"
+cp Resources/Baddel.icns "$APP/Contents/Resources/Baddel.icns"
 
 if [ -n "${BADDEL_SIGN_IDENTITY:-}" ]; then
   # BADDEL_SIGN_TIMESTAMP=none skips the Apple timestamp server (local tests only).

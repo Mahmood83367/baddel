@@ -38,7 +38,16 @@ final class PermissionWindowController: NSWindowController {
         let buttons = NSStackView(views: [prompt, open])
         buttons.spacing = 10
 
-        let stack = NSStackView(views: [heading, body, status, buttons])
+        let staleNote = NSTextField(wrappingLabelWithString:
+            "Upgrading from an earlier preview? If Baddel is already listed and switched on there but this window "
+            + "still says access is not granted, that entry belongs to the old copy. Remove it, then grant access again.")
+        staleNote.textColor = .secondaryLabelColor
+        staleNote.font = .systemFont(ofSize: 11)
+        staleNote.preferredMaxLayoutWidth = 430
+        let reset = NSButton(title: "Remove Old Entry…", target: self, action: #selector(resetEntry))
+        reset.controlSize = .small
+
+        let stack = NSStackView(views: [heading, body, status, buttons, staleNote, reset])
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 14
@@ -74,6 +83,27 @@ final class PermissionWindowController: NSWindowController {
     /// Shows the system's own permission dialog. The user decides.
     @objc private func requestAccess() {
         AccessibilityPermission.requestSystemPrompt()
+    }
+
+    /// Removes Baddel's entry from the Accessibility list after the user confirms,
+    /// then asks macOS to show its permission dialog for this copy.
+    @objc private func resetEntry() {
+        let alert = NSAlert()
+        alert.messageText = "Remove Baddel's old Accessibility entry?"
+        alert.informativeText = "This removes Baddel from the Accessibility list. Nothing else is changed. "
+            + "You then allow this copy of Baddel again."
+        alert.addButton(withTitle: "Remove Entry")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        if AccessibilityEntry.reset() {
+            AccessibilityPermission.requestSystemPrompt()
+        } else {
+            let failed = NSAlert()
+            failed.messageText = "The entry could not be removed"
+            failed.informativeText = "Open Accessibility Settings, select Baddel in the list and use the – button, then add it again."
+            failed.runModal()
+        }
+        refresh()
     }
 
     @objc private func openSettings() {
