@@ -20,6 +20,7 @@ let package = Package(
         // focused field through Accessibility and reports outcome codes only.
         .executableTarget(name: "BaddelAXCheck", dependencies: ["BaddelCore", "BaddelMacKit"]),
         .testTarget(name: "BaddelCoreTests", dependencies: ["BaddelCore"]),
+        .testTarget(name: "BaddelMacKitTests", dependencies: ["BaddelMacKit"]),
     ],
     swiftLanguageVersions: [.v5]
 )
