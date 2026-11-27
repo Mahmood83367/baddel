@@ -49,7 +49,9 @@ dotnet test linux/tests/Baddel.Linux.Tests/Baddel.Linux.Tests.csproj   # on Linu
   shortcuts, settings, supported platforms, or privacy.
 - Review both guides before publishing any release. Check the download links,
   package and signing details, and the capabilities actually tested. Update
-  the illustrated demo when the workflow it shows changes.
+  the illustrated how-to video when the workflow it shows changes: edit and
+  run `swift tools/render-demo-video.swift docs/media`, check the frames with
+  its `--frames` option, and copy the same files to the download page.
 - Each published update gets a higher number in `VERSION`. Use that number
   for the release tag, packages, and notes. Keep previously published versions
   and their checksums intact. The `version` CI job checks on

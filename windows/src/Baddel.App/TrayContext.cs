@@ -386,11 +386,12 @@ internal static class TrayIcon
         {
             graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             graphics.Clear(Color.Transparent);
-            using var background = new SolidBrush(Color.FromArgb(0x1F, 0x6F, 0xEB));
+            using var background = new SolidBrush(Color.FromArgb(0x0E, 0x10, 0x16));
             graphics.FillEllipse(background, 1, 1, 30, 30);
             using var font = new Font("Segoe UI", 15, FontStyle.Bold, GraphicsUnit.Pixel);
             using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-            graphics.DrawString("ب", font, Brushes.White, new RectangleF(0, 0, 32, 30), format);
+            using var ivory = new SolidBrush(Color.FromArgb(0xF3, 0xF1, 0xEC));
+            graphics.DrawString("ب", font, ivory, new RectangleF(0, 0, 32, 30), format);
         }
         return Icon.FromHandle(bitmap.GetHicon());
     }
