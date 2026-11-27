@@ -12,10 +12,17 @@ it at build time, and package names and the release tag are derived from it.
   package has to change after publication, publish a new version.
 - The tag is `v<VERSION>` on the commit the packages were built from.
 
-`tools/check-version.sh` enforces this and runs as the `version` job in CI. It
-fails when the tag `v<VERSION>` already exists on a different commit, or when
-`VERSION` is not higher than every published version. The first change after a
-release therefore has to raise `VERSION`.
+`tools/check-version.sh` enforces this in two modes:
+
+| Mode | When | Rule |
+|---|---|---|
+| Ordinary (`tools/check-version.sh`) | every pull request and push — the `version` CI job | `VERSION` is a semantic version and is **not lower** than any published version. A version that is already published still passes, so documentation and other changes that publish nothing are not blocked; the output notes that it must be raised before the next release. |
+| Strict (`tools/check-version.sh --release`) | when releasing — run by hand before tagging, and by the `release-version` CI job on every `v*` tag | The tag `v<VERSION>` either does not exist yet and `VERSION` is **higher** than every published version, or it points at exactly this commit. New content under an existing version is refused. |
+
+Versions are ordered as semantic versions, including the pre-release part
+(`0.2.0-preview.2` < `0.2.0-preview.10` < `0.2.0` < `0.2.1` < `0.10.0`), so a
+preview cannot be followed by a lower-numbered one. The guard has its own tests
+in `tools/test-check-version.sh`, which CI runs.
 
 ## Signing status
 
@@ -99,7 +106,8 @@ Record the outcome in [TESTING.md](TESTING.md).
 
 Publishing is a manual step, from the release commit on `main` only:
 
-1. `tools/check-version.sh` passes on that commit.
+1. `tools/check-version.sh --release` passes on that commit. If it says the
+   version is already published, raise `VERSION` in a pull request first.
 2. Download the package artifacts of the CI run **for that exact commit**, and
    verify each ZIP against its `.sha256` and its inner `SHA256SUMS.txt`.
 3. Create the release with tag `v<VERSION>` targeting that commit and attach
@@ -108,3 +116,6 @@ Publishing is a manual step, from the release commit on `main` only:
 4. Mark it as a pre-release for a preview, so that it reaches the preview
    update channel only.
 5. State the signing status from the table above in the release notes.
+
+Creating the release creates the tag, which starts a CI run on that commit
+with the strict `release-version` job. Check that it passed.

@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    # A release tag runs every job on the tagged commit, plus the strict
+    # release-version check.
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -12,7 +15,9 @@ permissions:
 # Every job runs on a GitHub-hosted runner. No self-hosted runner is attached
 # to this repository, so code from pull requests never runs on a private machine.
 jobs:
-  # A build may never reuse a version that is already published.
+  # Ordinary check on every pull request and push: VERSION is a semantic
+  # version and is not lower than any published version. A change that does not
+  # publish anything passes without raising VERSION.
   version:
     runs-on: ubuntu-24.04
     steps:
@@ -20,8 +25,25 @@ jobs:
         with:
           # For pull requests, check the branch's own commit, not the merge commit.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      - name: VERSION is new, or this is the commit it was published from
+      - name: Version guard tests
+        run: tools/test-check-version.sh
+      - name: VERSION is not lower than any published version
         run: tools/check-version.sh
+
+  # Strict check when a release is tagged: the tag must be v<VERSION>, and that
+  # version must be published from exactly this commit. Reusing a published
+  # version for different content fails here.
+  release-version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches VERSION
+        run: |
+          test "$GITHUB_REF_NAME" = "v$(tr -d '[:space:]' < VERSION)" \
+            || { echo "Tag $GITHUB_REF_NAME does not match VERSION $(cat VERSION)"; exit 1; }
+      - name: This version is published from this commit only
+        run: tools/check-version.sh --release
 
   macos:
     runs-on: macos-15

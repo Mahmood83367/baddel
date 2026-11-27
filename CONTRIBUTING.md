@@ -52,9 +52,11 @@ dotnet test linux/tests/Baddel.Linux.Tests/Baddel.Linux.Tests.csproj   # on Linu
   the illustrated demo when the workflow it shows changes.
 - Each published update gets a higher number in `VERSION`. Use that number
   for the release tag, packages, and notes. Keep previously published versions
-  and their checksums intact. The `version` CI job runs
-  `tools/check-version.sh`, which fails if `VERSION` is already published
-  from another commit or is not higher than every published version.
+  and their checksums intact. The `version` CI job checks on
+  every pull request that `VERSION` is not lower than any published version;
+  a change that publishes nothing does not have to raise it. When a release is
+  tagged, `tools/check-version.sh --release` requires a version that has not
+  been published from any other commit.
 
 ## CI
 

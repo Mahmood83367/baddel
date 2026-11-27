@@ -30,15 +30,17 @@ Version 0.1.0 is published as a pre-release, so the stable channel reports
 ## Versions
 
 `VERSION` at the repository root is the single source of the version for every
-package. Rules, enforced by `tools/check-version.sh` in CI:
+package. Rules, enforced by `tools/check-version.sh` (strictly when a release
+is tagged, and as a "never lower" check on every pull request):
 
 - every published update has a higher version than every earlier one;
 - a published version is never rebuilt or replaced: once `v<VERSION>` exists,
   only the commit it was published from may carry that version;
 - tags and package names always match `VERSION`.
 
-Versions are compared as semantic versions (`0.2.0-preview.1` < `0.2.0` <
-`0.2.1` < `0.10.0`).
+Versions are compared as semantic versions, including the pre-release part
+(`0.2.0-preview.2` < `0.2.0-preview.10` < `0.2.0` < `0.2.1` < `0.10.0`), both
+by the release guard and by the update check in the apps.
 
 ## Signed updates: what is built, and what is deliberately not
 

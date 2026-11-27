@@ -1,0 +1,5 @@
+# The signature in shared/fixtures/updates.json covers these exact bytes, so
+# Git must never convert its line endings.
+shared/fixtures/update-manifest.json -text
+# Shell scripts keep LF endings on every platform.
+*.sh text eol=lf
