@@ -12,6 +12,17 @@ permissions:
 # Every job runs on a GitHub-hosted runner. No self-hosted runner is attached
 # to this repository, so code from pull requests never runs on a private machine.
 jobs:
+  # A build may never reuse a version that is already published.
+  version:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # For pull requests, check the branch's own commit, not the merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: VERSION is new, or this is the commit it was published from
+        run: tools/check-version.sh
+
   macos:
     runs-on: macos-15
     steps:
@@ -90,8 +101,21 @@ jobs:
             dist/Baddel-*-windows-x64.zip
             dist/Baddel-*-windows-x64.zip.sha256
           if-no-files-found: error
-      # The hosted runner has a desktop session but only an English keyboard
-      # layout, so layout switching is not exercised here.
+      # The hosted runner starts with only a US English layout. This adds UK
+      # English and Arabic (101 and 102) to this throwaway machine's account so
+      # that switching to the exact layout can be exercised. If Windows declines,
+      # the checks say which layouts were available and skip what they cannot test.
+      - name: Add keyboard layouts to the runner account
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $list = New-WinUserLanguageList en-US
+          $list[0].InputMethodTips.Clear(); $list[0].InputMethodTips.Add('0409:00000409')
+          $list.Add('en-GB'); $list[1].InputMethodTips.Clear(); $list[1].InputMethodTips.Add('0809:00000809')
+          $list.Add('ar-SA'); $list[2].InputMethodTips.Clear()
+          $list[2].InputMethodTips.Add('0401:00000401'); $list[2].InputMethodTips.Add('0401:00010401')
+          Set-WinUserLanguageList $list -Force
+          Get-WinUserLanguageList | ForEach-Object { "$($_.LanguageTag): $($_.InputMethodTips -join ', ')" }
       - name: Desktop checks against the packaged app
         shell: pwsh
         run: |
