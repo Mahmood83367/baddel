@@ -12,6 +12,9 @@ using Baddel.Core;
 
 namespace Baddel.Linux;
 
+/// <summary>One XKB group of the session: a layout name and its variant ("" for the default).</summary>
+public readonly record struct XkbGroup(string Layout, string Variant);
+
 /// <summary>User preferences. Nothing here is user text.</summary>
 public sealed class LinuxSettings
 {
@@ -21,7 +24,15 @@ public sealed class LinuxSettings
     /// <summary>XKB layout names; the tables are read from this system's XKB data.</summary>
     public string LatinXkbLayout { get; set; } = "us";
     public string ArabicXkbLayout { get; set; } = "ara";
-    public string ArabicXkbVariant { get; set; } = "";
+
+    /// <summary>
+    /// XKB variants. <c>null</c> (the default) means "use the variant of the
+    /// session's first group with that layout"; an empty string means the
+    /// layout's default variant; anything else is that exact variant.
+    /// </summary>
+    public string? LatinXkbVariant { get; set; }
+    public string? ArabicXkbVariant { get; set; }
+
     public int DoublePressMs { get; set; } = 300;
     public bool SwitchLayout { get; set; } = true;
 
@@ -47,37 +58,113 @@ public sealed class LinuxSettings
         }
     }
 
-    public LayoutPair? LoadPair()
+    /// <summary>
+    /// The exact layout and variant to use for each script: the configured variant,
+    /// or, when it is not configured, the variant the session reports for that
+    /// layout. Without session information the default variant is used.
+    /// </summary>
+    public (XkbGroup Latin, XkbGroup Arabic) Resolve(IReadOnlyList<XkbGroup> sessionGroups)
     {
-        var latin = XkbLayouts.Load(LatinXkbLayout, null, Script.Latin);
-        var arabic = XkbLayouts.Load(ArabicXkbLayout, ArabicXkbVariant, Script.Arabic);
-        return latin is null || arabic is null ? null : new LayoutPair(latin, arabic);
+        XkbGroup Pick(string layout, string? variant)
+        {
+            if (variant is not null) return new XkbGroup(layout, variant);
+            foreach (var group in sessionGroups)
+            {
+                if (group.Layout == layout) return group;
+            }
+            return new XkbGroup(layout, string.Empty);
+        }
+        return (Pick(LatinXkbLayout, LatinXkbVariant), Pick(ArabicXkbLayout, ArabicXkbVariant));
+    }
+
+    public static LayoutPair? LoadPair(XkbGroup latin, XkbGroup arabic)
+    {
+        var latinTable = XkbLayouts.Load(latin.Layout, latin.Variant, Script.Latin);
+        var arabicTable = XkbLayouts.Load(arabic.Layout, arabic.Variant, Script.Arabic);
+        return latinTable is null || arabicTable is null ? null : new LayoutPair(latinTable, arabicTable);
     }
 }
 
 /// <summary>
 /// How another process tells the running app that the shortcut was pressed: a
-/// Unix socket in the user's runtime directory. This is the path for desktops
-/// where the user binds a key to <c>baddel --trigger</c> in their own keyboard
-/// settings (for example on Wayland), and it needs no privileges.
+/// Unix socket in a directory only this user can enter. This is the path for
+/// desktops where the user binds a key to <c>baddel --trigger</c> in their own
+/// keyboard settings (for example on Wayland), and it needs no privileges.
+///
+/// The socket is never placed directly in a shared directory. It lives in
+/// <c>XDG_RUNTIME_DIR</c> when that is a private directory, otherwise in
+/// <c>/tmp/baddel-&lt;uid&gt;</c>, which must be a real directory (not a symbolic
+/// link) with mode 0700. If neither is available the channel is refused.
 /// </summary>
 public static class TriggerChannel
 {
-    public static string SocketPath =>
-        Path.Combine(
-            Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR") is { Length: > 0 } runtime ? runtime : Path.GetTempPath(),
-            "baddel.sock");
+    private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
 
-    public static bool Send(string command)
+    [System.Runtime.InteropServices.DllImport("libc")]
+    private static extern uint geteuid();
+
+    /// <summary>
+    /// A real directory (not a symbolic link) whose mode is exactly 0700. Only its
+    /// owner can create entries in such a directory, so being able to use it means
+    /// it is ours.
+    /// </summary>
+    public static bool IsPrivateDirectory(string path)
     {
         try
         {
+            var info = new DirectoryInfo(path);
+            if (!info.Exists || info.LinkTarget is not null || (info.Attributes & FileAttributes.ReparsePoint) != 0) return false;
+            return File.GetUnixFileMode(path) == OwnerOnly;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The directory for the socket, or <c>null</c> if no private directory is
+    /// available. <paramref name="create"/> lets the listening side create the
+    /// per-user fallback; a client never creates it.
+    /// </summary>
+    public static string? ResolveDirectory(bool create)
+    {
+        var runtime = Environment.GetEnvironmentVariable("XDG_RUNTIME_DIR");
+        if (!string.IsNullOrEmpty(runtime) && Path.IsPathRooted(runtime) && IsPrivateDirectory(runtime)) return runtime;
+
+        var fallback = Path.Combine("/tmp", "baddel-" + geteuid());
+        try
+        {
+            // Creation fails if anything already exists at the path; an existing
+            // entry is then accepted only if it passes the same checks.
+            if (create && !System.IO.Directory.Exists(fallback) && !File.Exists(fallback))
+            {
+                System.IO.Directory.CreateDirectory(fallback, OwnerOnly);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+        return IsPrivateDirectory(fallback) ? fallback : null;
+    }
+
+    public static string? SocketPath(bool create = false) =>
+        ResolveDirectory(create) is { } directory ? Path.Combine(directory, "baddel.sock") : null;
+
+    public static bool Send(string command)
+    {
+        if (SocketPath() is not { } path) return false;
+        try
+        {
+            // Never follow a link someone may have planted in place of the socket.
+            if (new FileInfo(path).LinkTarget is not null) return false;
             using var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-            socket.Connect(new UnixDomainSocketEndPoint(SocketPath));
+            socket.Connect(new UnixDomainSocketEndPoint(path));
             socket.Send(Encoding.ASCII.GetBytes(command + "\n"));
             return true;
         }
-        catch (SocketException)
+        catch (Exception exception) when (exception is SocketException or IOException)
         {
             return false;
         }
@@ -85,17 +172,18 @@ public static class TriggerChannel
 
     public static Socket? Listen(ConcurrentQueue<string> queue)
     {
+        if (SocketPath(create: true) is not { } path) return null;
         try
         {
             // A stale socket from a previous run; a live instance would have answered.
-            if (File.Exists(SocketPath))
+            if (File.Exists(path) || new FileInfo(path).LinkTarget is not null)
             {
                 if (Send("ping")) return null;
-                File.Delete(SocketPath);
+                File.Delete(path);
             }
             var listener = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-            listener.Bind(new UnixDomainSocketEndPoint(SocketPath));
-            File.SetUnixFileMode(SocketPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            listener.Bind(new UnixDomainSocketEndPoint(path));
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             listener.Listen(8);
             var thread = new Thread(() =>
             {
@@ -122,45 +210,71 @@ public static class TriggerChannel
             thread.Start();
             return listener;
         }
-        catch (Exception exception) when (exception is SocketException or IOException)
+        catch (Exception exception) when (exception is SocketException or IOException or UnauthorizedAccessException)
         {
             return null;
         }
     }
 }
 
-/// <summary>XKB groups of an X11 session. Only groups the user configured are selected.</summary>
+/// <summary>
+/// XKB groups of an X11 session. Only groups the user configured are selected,
+/// and a group is matched by its exact layout and variant, not by language.
+/// </summary>
 public sealed class XkbGroupSwitcher : ILayoutSwitcher
 {
     private readonly IntPtr display;
-    private readonly string[] layouts;
-    private readonly LinuxSettings settings;
+    private readonly IReadOnlyList<XkbGroup> groups;
+    private readonly XkbGroup latin;
+    private readonly XkbGroup arabic;
 
-    public XkbGroupSwitcher(IntPtr display, LinuxSettings settings)
+    public XkbGroupSwitcher(IntPtr display, IReadOnlyList<XkbGroup> groups, XkbGroup latin, XkbGroup arabic)
     {
         this.display = display;
-        this.settings = settings;
-        layouts = QueryLayouts();
+        this.groups = groups;
+        this.latin = latin;
+        this.arabic = arabic;
     }
 
-    public IReadOnlyList<string> Layouts => layouts;
+    public IReadOnlyList<XkbGroup> Groups => groups;
 
-    /// <summary>The configured layout names, as reported by <c>setxkbmap -query</c>.</summary>
-    private static string[] QueryLayouts()
+    /// <summary>
+    /// The session's groups as reported by <c>setxkbmap -query</c>: the layout list
+    /// and the variant list, position by position. Empty if the session does not
+    /// provide the information.
+    /// </summary>
+    public static IReadOnlyList<XkbGroup> QuerySession()
     {
         try
         {
             using var process = Process.Start(new ProcessStartInfo("setxkbmap", "-query") { RedirectStandardOutput = true, UseShellExecute = false });
-            if (process is null) return Array.Empty<string>();
+            if (process is null) return Array.Empty<XkbGroup>();
             var output = process.StandardOutput.ReadToEnd();
             process.WaitForExit(2000);
-            var line = output.Split('\n').FirstOrDefault(l => l.StartsWith("layout:", StringComparison.Ordinal));
-            return line is null ? Array.Empty<string>() : line["layout:".Length..].Trim().Split(',', StringSplitOptions.TrimEntries);
+            return Parse(output);
         }
         catch (Exception)
         {
-            return Array.Empty<string>();
+            return Array.Empty<XkbGroup>();
         }
+    }
+
+    public static IReadOnlyList<XkbGroup> Parse(string query)
+    {
+        string[] Field(string name)
+        {
+            var line = query.Split('\n').FirstOrDefault(l => l.StartsWith(name + ":", StringComparison.Ordinal));
+            return line is null ? Array.Empty<string>() : line[(name.Length + 1)..].Trim().Split(',', StringSplitOptions.TrimEntries);
+        }
+        var layouts = Field("layout");
+        var variants = Field("variant");
+        var result = new List<XkbGroup>();
+        for (var index = 0; index < layouts.Length; index++)
+        {
+            if (layouts[index].Length == 0) continue;
+            result.Add(new XkbGroup(layouts[index], index < variants.Length ? variants[index] : string.Empty));
+        }
+        return result;
     }
 
     private int CurrentGroup()
@@ -171,9 +285,9 @@ public sealed class XkbGroupSwitcher : ILayoutSwitcher
 
     private Script? ScriptOf(int group)
     {
-        if (group < 0 || group >= layouts.Length) return null;
-        if (layouts[group] == settings.ArabicXkbLayout) return Script.Arabic;
-        if (layouts[group] == settings.LatinXkbLayout) return Script.Latin;
+        if (group < 0 || group >= groups.Count) return null;
+        if (groups[group] == arabic) return Script.Arabic;
+        if (groups[group] == latin) return Script.Latin;
         return null;
     }
 
@@ -187,12 +301,16 @@ public sealed class XkbGroupSwitcher : ILayoutSwitcher
 
     public bool SelectLayout(Script script)
     {
-        var wanted = script == Script.Arabic ? settings.ArabicXkbLayout : settings.LatinXkbLayout;
-        var group = Array.IndexOf(layouts, wanted);
-        return group >= 0 && Lock(group);
+        var wanted = script == Script.Arabic ? arabic : latin;
+        for (var group = 0; group < groups.Count; group++)
+        {
+            if (groups[group] == wanted) return Lock(group);
+        }
+        // The exact layout and variant is not one of the session's groups.
+        return false;
     }
 
-    public bool SelectLayoutById(string id) => int.TryParse(id, out var group) && group >= 0 && group < Math.Max(layouts.Length, 1) && Lock(group);
+    public bool SelectLayoutById(string id) => int.TryParse(id, out var group) && group >= 0 && group < Math.Max(groups.Count, 1) && Lock(group);
 
     private bool Lock(int group)
     {
@@ -220,6 +338,9 @@ public sealed class Session
 {
     private readonly LinuxSettings settings;
     private readonly LayoutPair pair;
+    private readonly IReadOnlyList<XkbGroup> sessionGroups;
+    private readonly XkbGroup latinGroup;
+    private readonly XkbGroup arabicGroup;
     private readonly AtspiFocus focus = new();
     private readonly ConcurrentQueue<string> triggers = new();
     private DoublePressDetector detector;
@@ -243,10 +364,13 @@ public sealed class Session
     private static X11.ErrorHandler? errorHandler;
     private static volatile bool xError;
 
-    public Session(LinuxSettings settings, LayoutPair pair)
+    public Session(LinuxSettings settings, LayoutPair pair, IReadOnlyList<XkbGroup> sessionGroups, XkbGroup latin, XkbGroup arabic)
     {
         this.settings = settings;
         this.pair = pair;
+        this.sessionGroups = sessionGroups;
+        latinGroup = latin;
+        arabicGroup = arabic;
         detector = new DoublePressDetector(Math.Clamp(settings.DoublePressMs, 150, 600));
     }
 
@@ -270,7 +394,9 @@ public sealed class Session
         using var listener = TriggerChannel.Listen(triggers);
         if (listener is null)
         {
-            Say("status=error reason=already-running-or-socket-unavailable");
+            Say(TriggerChannel.SocketPath(create: true) is null
+                ? "status=error reason=no-private-directory-for-the-trigger-socket"
+                : "status=error reason=already-running");
             return 3;
         }
 
@@ -287,7 +413,7 @@ public sealed class Session
                     return 0;
                 };
                 X11.XSetErrorHandler(errorHandler);
-                switcher = new XkbGroupSwitcher(display, settings);
+                switcher = new XkbGroupSwitcher(display, sessionGroups, latinGroup, arabicGroup);
                 shortcutMode = GrabShortcut() ? "x11-grab" : "trigger-only(shortcut-unavailable)";
                 CreatePopup();
             }
@@ -296,7 +422,8 @@ public sealed class Session
         // shortcut comes from the desktop (bound to `baddel --trigger`) and no
         // popup is shown; Undo is `baddel --undo`.
         Say($"status=ready session={(IsWayland ? "wayland" : display != IntPtr.Zero ? "x11" : "none")} shortcut={shortcutMode} "
-            + $"layouts={pair.Latin.Id},{pair.Arabic.Id} xkbGroups={string.Join("|", (switcher as XkbGroupSwitcher)?.Layouts ?? Array.Empty<string>())}");
+            + $"layouts={pair.Latin.Id},{pair.Arabic.Id} "
+            + $"xkbGroups={string.Join("|", sessionGroups.Select(g => g.Variant.Length > 0 ? $"{g.Layout}({g.Variant})" : g.Layout))}");
 
         try
         {
@@ -333,7 +460,7 @@ public sealed class Session
         {
             try
             {
-                File.Delete(TriggerChannel.SocketPath);
+                if (TriggerChannel.SocketPath() is { } path) File.Delete(path);
             }
             catch (IOException)
             {

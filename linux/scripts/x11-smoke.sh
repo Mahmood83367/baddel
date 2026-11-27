@@ -35,12 +35,23 @@ mkdir -p "$BADDEL_SETTINGS_DIR"
 say "session=${XDG_SESSION_TYPE:-x11-or-unset} display=${DISPLAY:-none} xkb=$(setxkbmap -query | awk '/layout/{print $2}')"
 "$BADDEL" --self-check | sed 's/^/selfcheck /' | tee -a "$RESULTS"
 
-"$BADDEL" > "$LOG" 2>&1 &
-BADDEL_PID=$!
-cleanup() { "$BADDEL" --quit 2>/dev/null; kill "$BADDEL_PID" 2>/dev/null; pkill -f fixture_entry.py 2>/dev/null; rm -rf "$WORK"; }
+BADDEL_PID=""
+FALLBACK_DIR="/tmp/baddel-$(id -u)"
+stop_app() {  # optional env prefix words
+  [ -n "$BADDEL_PID" ] || return 0
+  "$@" "$BADDEL" --quit 2>/dev/null; sleep 0.3
+  kill "$BADDEL_PID" 2>/dev/null; wait "$BADDEL_PID" 2>/dev/null; BADDEL_PID=""
+}
+start_app() {  # optional env prefix words, e.g. env -u XDG_RUNTIME_DIR
+  : > "$LOG"
+  "$@" "$BADDEL" >> "$LOG" 2>&1 &
+  BADDEL_PID=$!
+  for _ in $(seq 1 50); do grep -q "status=" "$LOG" && break; sleep 0.1; done
+  say "$(head -1 "$LOG")"
+}
+cleanup() { stop_app; pkill -f fixture_entry.py 2>/dev/null; rm -rf "$WORK"; [ -L "$FALLBACK_DIR" ] && rm -f "$FALLBACK_DIR"; rm -rf "$FALLBACK_DIR" 2>/dev/null; }
 trap cleanup EXIT
-for _ in $(seq 1 50); do grep -q "status=" "$LOG" && break; sleep 0.1; done
-say "$(head -1 "$LOG")"
+start_app
 check "app is running with an X11 key grab" "$(grep -q 'status=ready session=x11 shortcut=x11-grab' "$LOG" && echo true || echo false)"
 
 group() { "$BADDEL" --xkb-group; }
@@ -119,6 +130,80 @@ press key 1
 xdotool type --delay 30 'x'; sleep 0.5
 "$BADDEL" --undo; sleep 0.8
 check "Undo is refused after the text was edited" "$(tail -1 "$LOG" | grep -q 'event=UndoRejected' && echo true || echo false)" "$(tail -1 "$LOG")"
+
+# ---- Manual variants, and switching to the exact variant --------------------
+say "-- layout variants --"
+stop_app
+BASIC=$("$BADDEL" --dump-layout ara | grep '^Digit1|' | cut -d'|' -f2)
+DIGITS=$("$BADDEL" --dump-layout ara digits | grep '^Digit1|' | cut -d'|' -f2)
+check "ara and ara(digits) are read as separate tables" "$("$BADDEL" --dump-layout ara digits | head -1 | grep -q 'xkb-ara-digits' && echo true || echo false)" "digit1Differs=$([ "$BASIC" != "$DIGITS" ] && echo true || echo false)"
+
+# Two Arabic groups in the session; the settings ask for the second one's variant.
+setxkbmap -layout us,ara,ara -variant ,,digits
+printf '{ "ArabicXkbVariant": "digits" }' > "$BADDEL_SETTINGS_DIR/settings.json"
+start_app
+check "configured Arabic variant is loaded" "$(grep -q 'layouts=xkb-us,xkb-ara-digits .*xkbGroups=us|ara|ara(digits)' "$LOG" && echo true || echo false)"
+"$BADDEL" --xkb-group 0 >/dev/null
+case_fix "conversion uses the configured variant's table" plain 'ugd;l 1' "عليكم $DIGITS" 7 key 2
+check "layout switches to the exact variant's group, not the first Arabic group" "$([ "$(group)" = "2" ] && echo true || echo false)" "group=$(group)"
+"$BADDEL" --undo; sleep 0.8
+check "Undo returns to the English group" "$([ "$(group)" = "0" ] && echo true || echo false)" "group=$(group)"
+
+# A configured variant that is not one of the session's groups: text is fixed, layout is left alone.
+stop_app
+setxkbmap -layout us,ara
+start_app
+"$BADDEL" --xkb-group 0 >/dev/null
+case_fix "variant missing from the session: text is still fixed" plain 'ugd;l' 'عليكم' 5 key 1
+check "variant missing from the session: layout is not switched to another Arabic group" "$([ "$(group)" = "0" ] && tail -1 "$LOG" | grep -q 'layoutSwitched=False' && echo true || echo false)" "group=$(group)"
+
+# No variant configured: the session's own variant is used.
+stop_app
+rm -f "$BADDEL_SETTINGS_DIR/settings.json"
+setxkbmap -layout us,ara -variant ,digits
+start_app
+check "unset variant follows the session (ara(digits))" "$(grep -q 'layouts=xkb-us,xkb-ara-digits ' "$LOG" && echo true || echo false)"
+stop_app
+
+# Manual Latin variant.
+printf '{ "LatinXkbVariant": "dvorak", "ArabicXkbVariant": "" }' > "$BADDEL_SETTINGS_DIR/settings.json"
+check "configured Latin variant is loaded" "$("$BADDEL" --self-check | grep -q 'latinLayout=xkb-us-dvorak arabicLayout=xkb-ara$' && echo true || echo false)"
+rm -f "$BADDEL_SETTINGS_DIR/settings.json"
+setxkbmap -layout us,ara
+
+# ---- Trigger socket location -------------------------------------------------
+say "-- trigger socket --"
+NORMAL=$("$BADDEL" --socket-path --create)
+check "socket is in the private runtime directory when there is one" "$([ -n "${XDG_RUNTIME_DIR:-}" ] && [ "$NORMAL" = "$XDG_RUNTIME_DIR/baddel.sock" ] && echo true || echo false)" "runtimeDirSet=$([ -n "${XDG_RUNTIME_DIR:-}" ] && echo true || echo false)"
+
+rm -rf "$FALLBACK_DIR"
+FALLBACK=$(env -u XDG_RUNTIME_DIR "$BADDEL" --socket-path --create)
+check "without a runtime directory the per-user fallback is used" "$([ "$FALLBACK" = "$FALLBACK_DIR/baddel.sock" ] && echo true || echo false)"
+check "the fallback directory is a real directory with mode 700" "$([ -d "$FALLBACK_DIR" ] && [ ! -L "$FALLBACK_DIR" ] && [ "$(stat -c %a "$FALLBACK_DIR")" = "700" ] && echo true || echo false)" "mode=$(stat -c %a "$FALLBACK_DIR" 2>/dev/null)"
+
+start_app env -u XDG_RUNTIME_DIR
+start_fixture plain 'hgsghl ugd;l' 12
+env -u XDG_RUNTIME_DIR "$BADDEL" --trigger; sleep 1.3
+check "trigger works through the fallback socket" "$(matches 'hgsghl عليكم')" "socketMode=$(stat -c %a "$FALLBACK_DIR/baddel.sock" 2>/dev/null)"
+stop_app env -u XDG_RUNTIME_DIR
+
+# A runtime directory that others can enter is not trusted.
+mkdir -p "$WORK/open-runtime"; chmod 755 "$WORK/open-runtime"
+check "a non-private XDG_RUNTIME_DIR is not used" "$([ "$(XDG_RUNTIME_DIR="$WORK/open-runtime" "$BADDEL" --socket-path --create)" = "$FALLBACK_DIR/baddel.sock" ] && echo true || echo false)"
+
+# The fallback path occupied by a world-writable directory: refused.
+rm -rf "$FALLBACK_DIR"; mkdir "$FALLBACK_DIR"; chmod 777 "$FALLBACK_DIR"
+check "a world-writable fallback directory is refused" "$(env -u XDG_RUNTIME_DIR "$BADDEL" --socket-path --create >/dev/null && echo false || echo true)"
+: > "$LOG"; env -u XDG_RUNTIME_DIR "$BADDEL" >> "$LOG" 2>&1; CODE=$?
+check "the app refuses to start a channel there" "$([ "$CODE" = "3" ] && grep -q 'reason=no-private-directory-for-the-trigger-socket' "$LOG" && echo true || echo false)" "exit=$CODE"
+check "no socket was created in the refused directory" "$([ ! -e "$FALLBACK_DIR/baddel.sock" ] && echo true || echo false)"
+
+# The fallback path replaced by a symbolic link to a private directory: refused.
+rm -rf "$FALLBACK_DIR"; mkdir -m 700 "$WORK/elsewhere"; ln -s "$WORK/elsewhere" "$FALLBACK_DIR"
+check "a symbolic link at the fallback path is refused" "$(env -u XDG_RUNTIME_DIR "$BADDEL" --socket-path --create >/dev/null && echo false || echo true)"
+check "a client refuses to send through it" "$(env -u XDG_RUNTIME_DIR "$BADDEL" --trigger && echo false || echo true)"
+check "nothing was created behind the link" "$([ -z "$(ls -A "$WORK/elsewhere")" ] && echo true || echo false)"
+rm -f "$FALLBACK_DIR"
 
 echo "--- app log (codes only) ---"; cat "$LOG"
 if [ "$failures" -eq 0 ]; then say "RESULT all checks passed"; else say "RESULT $failures check(s) failed"; fi

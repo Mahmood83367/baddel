@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Baddel.Core;
 
@@ -38,25 +39,44 @@ internal static class Program
                 return DumpLayout(args.ElementAtOrDefault(1) ?? "us", args.ElementAtOrDefault(2));
             case "--self-check":
                 return SelfCheck();
+            case "--socket-path":
+                // Where the trigger socket would live, or a refusal. Used by the checks.
+                if (TriggerChannel.SocketPath(create: args.Contains("--create")) is { } socketPath)
+                {
+                    Console.WriteLine(socketPath);
+                    return 0;
+                }
+                Console.WriteLine("refused: no private directory");
+                return 1;
             case "--xkb-group":
                 return XkbGroup(args.ElementAtOrDefault(1));
         }
 
         var settings = LinuxSettings.Load();
-        var pair = settings.LoadPair();
+        var groups = SessionGroups();
+        var (latin, arabic) = settings.Resolve(groups);
+        var pair = LinuxSettings.LoadPair(latin, arabic);
         if (pair is null)
         {
             Console.WriteLine("status=error reason=xkb-layout-not-found");
             return 4;
         }
-        return new Session(settings, pair).Run();
+        return new Session(settings, pair, groups, latin, arabic).Run();
     }
+
+    /// <summary>The session's XKB groups; only an X11 session reports them.</summary>
+    private static IReadOnlyList<XkbGroup> SessionGroups() =>
+        !Session.IsWayland && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))
+            ? XkbGroupSwitcher.QuerySession()
+            : Array.Empty<XkbGroup>();
 
     /// <summary>States what this session offers, so nothing has to be assumed.</summary>
     private static int SelfCheck()
     {
         var settings = LinuxSettings.Load();
-        var pair = settings.LoadPair();
+        var groups = SessionGroups();
+        var (latin, arabic) = settings.Resolve(groups);
+        var pair = LinuxSettings.LoadPair(latin, arabic);
         var accessibility = AtspiFocus.Initialise();
         Console.WriteLine($"version={Version}");
         Console.WriteLine($"session={(Session.IsWayland ? "wayland" : string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")) ? "none" : "x11")}");
@@ -67,6 +87,7 @@ internal static class Program
             var converter = new LayoutConverter(pair.Latin, pair.Arabic);
             Console.WriteLine($"conversionWorks={converter.Convert("ugd;l") == "عليكم"}");
         }
+        Console.WriteLine($"triggerSocket={TriggerChannel.SocketPath(create: true) ?? "refused: no private directory"}");
         Console.WriteLine($"shortcut={(Session.IsWayland ? "bind a desktop shortcut to: baddel --trigger" : "X11 key grab: " + settings.Shortcut)}");
         return pair is not null && accessibility ? 0 : 1;
     }
@@ -92,6 +113,7 @@ internal static class Program
     {
         var table = XkbLayouts.Load(layout, variant, Script.Latin);
         if (table is null) return 1;
+        Console.WriteLine($"# {table.Id}");
         foreach (var key in table.Keys) Console.WriteLine($"{key.Code}|{key.Base}|{key.Shift}");
         return 0;
     }
