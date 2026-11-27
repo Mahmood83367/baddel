@@ -18,6 +18,10 @@ public static class EmbeddedLayouts
     public const string Latin = "us-english";
     public const string DefaultArabic = "arabic-windows-101";
 
+    /// <summary>The built-in layouts plus any valid user-supplied ones from <paramref name="customDirectory"/>.</summary>
+    public static LayoutStore LoadWithCustom(string customDirectory) =>
+        LayoutValidator.AddCustomLayouts(Load(), customDirectory).Store;
+
     public static LayoutStore Load()
     {
         var assembly = typeof(EmbeddedLayouts).Assembly;
@@ -32,15 +36,32 @@ public static class EmbeddedLayouts
         return new LayoutStore(documents);
     }
 
-    /// <summary>US English plus the chosen Arabic layout (Arabic 101 unless configured).</summary>
-    public static LayoutPair Pair(LayoutStore store, string? arabicLayoutId)
+    /// <summary>Layouts of one script that have a Windows layout id, plus valid custom ones.</summary>
+    public static IEnumerable<KeyboardLayout> Choices(LayoutStore store, Script script) =>
+        store.Layouts.Values
+            .Where(layout => layout.Script == script
+                             && (layout.PlatformIds.ContainsKey("windows") || layout.Id.StartsWith(LayoutValidator.CustomPrefix, StringComparison.Ordinal)))
+            .OrderBy(layout => layout.Id.StartsWith(LayoutValidator.CustomPrefix, StringComparison.Ordinal))
+            .ThenBy(layout => layout.Id, StringComparer.Ordinal);
+
+    /// <summary>
+    /// The chosen English and Arabic layouts. A missing, unknown or wrong-script
+    /// choice falls back to US English and Arabic (101), the defaults of earlier
+    /// versions.
+    /// </summary>
+    public static LayoutPair Pair(LayoutStore store, string? arabicLayoutId, string? latinLayoutId = null)
     {
-        var arabic = arabicLayoutId is not null && store.Layouts.TryGetValue(arabicLayoutId, out var chosen)
-                     && chosen.Script == Script.Arabic
-            ? chosen
-            : store.Get(DefaultArabic);
-        return new LayoutPair(store.Get(Latin), arabic);
+        KeyboardLayout Pick(string? id, Script script, string fallback) =>
+            id is not null && store.Layouts.TryGetValue(id, out var chosen) && chosen.Script == script
+            && (chosen.PlatformIds.ContainsKey("windows") || chosen.Id.StartsWith(LayoutValidator.CustomPrefix, StringComparison.Ordinal))
+                ? chosen
+                : store.Get(fallback);
+        return new LayoutPair(Pick(latinLayoutId, Script.Latin, Latin), Pick(arabicLayoutId, Script.Arabic, DefaultArabic));
     }
+
+    /// <summary>The Windows keyboard layout id of a layout, or <c>null</c> for a custom layout.</summary>
+    public static string? Klid(KeyboardLayout layout) =>
+        layout.PlatformIds.TryGetValue("windows", out var ids) && ids.Count > 0 ? ids[0] : null;
 }
 
 /// <summary>User preferences. Nothing here is user text.</summary>
@@ -48,11 +69,30 @@ public sealed class AppSettings
 {
     public string Shortcut { get; set; } = HotKey.Default.ToString();
     public string ArabicLayout { get; set; } = EmbeddedLayouts.DefaultArabic;
+
+    /// <summary>Absent in settings files written by 0.1.0, which means US English.</summary>
+    public string EnglishLayout { get; set; } = EmbeddedLayouts.Latin;
     public int DoublePressMs { get; set; } = 300;
     public bool SwitchLayout { get; set; } = true;
 
     /// <summary>Experimental and off by default.</summary>
     public bool PasteFallback { get; set; }
+
+    /// <summary>"stable" (default) or "preview": which releases "Check for updates" reports.</summary>
+    public string UpdateChannel { get; set; } = "stable";
+
+    /// <summary>
+    /// Off by default. When on, Baddel asks GitHub for the release list once a day
+    /// and mentions a newer version. It never downloads or installs.
+    /// </summary>
+    public bool CheckForUpdatesAutomatically { get; set; }
+
+    public DateTime? LastAutomaticUpdateCheckUtc { get; set; }
+
+    public UpdateChannel Channel => UpdateCheck.ParseChannel(UpdateChannel) ?? Baddel.Core.UpdateChannel.Stable;
+
+    /// <summary>Where a user can place their own layout files.</summary>
+    public static string CustomLayoutsDirectory => Path.Combine(Directory, "layouts");
 
     public HotKey HotKey => HotKey.TryParse(Shortcut, out var parsed) ? parsed : HotKey.Default;
 
@@ -305,14 +345,15 @@ public static class LayoutDumper
 
     /// <summary>
     /// The same data obtained by asking Windows to translate each key
-    /// (<c>ToUnicodeEx</c>). Only works for layouts the current user has added, in
-    /// an interactive session; used to cross-check <see cref="Dump"/>.
+    /// (<c>ToUnicodeEx</c>), for a layout the user already has installed. Nothing
+    /// is loaded: if the layout is not in the session's list this returns
+    /// <c>null</c>. Used to cross-check <see cref="Dump"/>.
     /// </summary>
     public static List<LayoutKey>? DumpByTranslation(string klid)
     {
-        const uint KLF_NOTELLSHELL = 0x80;
         const uint MAPVK_VSC_TO_VK_EX = 3;
-        var layout = NativeMethods.LoadKeyboardLayoutW(klid, KLF_NOTELLSHELL);
+        var layout = InputLanguageSwitcher.InstalledLayouts().FirstOrDefault(
+            candidate => string.Equals(InputLanguageSwitcher.KlidOf(candidate), klid, StringComparison.OrdinalIgnoreCase));
         if (layout == IntPtr.Zero) return null;
         var result = new List<LayoutKey>();
         foreach (var (code, scan) in Keys)

@@ -84,5 +84,19 @@ BADDEL=$!
 sleep 1
 run_case "Arabic layout set to Arabic (macOS) in Settings" 'lvpfh' 'مدحبا' 5 1 0
 
+# Manual English layout selection, overridden for this run only. Shift-3 is a
+# pound sign on the British layout and is not on the US layout at all, so the
+# US table leaves it alone and the British table converts it by its key.
+kill "$BADDEL" 2>/dev/null; wait "$BADDEL" 2>/dev/null
+.build/debug/Baddel -englishLayoutID uk-english-mac -arabicLayoutID arabic-mac &
+BADDEL=$!
+sleep 1
+run_case "English layout set to British in Settings" 'ugd;l£' 'عليكم#' 6 1 0
+kill "$BADDEL" 2>/dev/null; wait "$BADDEL" 2>/dev/null
+.build/debug/Baddel -englishLayoutID us-english -arabicLayoutID arabic-mac &
+BADDEL=$!
+sleep 1
+run_case "English layout set to US in Settings" 'ugd;l£' 'عليكم£' 6 1 0
+
 echo
 if [ "$failures" -eq 0 ]; then echo "All hot key checks passed."; else echo "$failures check(s) failed."; exit 1; fi

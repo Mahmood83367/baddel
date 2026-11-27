@@ -1,4 +1,5 @@
 import AppKit
+import BaddelCore
 
 /// A button that records a new shortcut. Key events are observed only while
 /// recording, and only when they are delivered to Baddel's own window.
@@ -60,6 +61,7 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     private let recorder = ShortcutRecorderButton(frame: .zero)
     private let shortcutStatus = NSTextField(labelWithString: "")
     private let arabicPopup = NSPopUpButton()
+    private let englishPopup = NSPopUpButton()
     private let intervalField = NSTextField(labelWithString: "")
     private let intervalStepper = NSStepper()
     private let switchCheckbox = NSButton(checkboxWithTitle: "Switch the keyboard layout after a correction", target: nil, action: nil)
@@ -70,11 +72,34 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     var suspendHotKey: ((Bool) -> Void)?
     var onSettingsChanged: (() -> Void)?
 
-    private static let arabicChoices: [(title: String, id: String?)] = [
-        ("Automatic (from enabled input sources)", nil),
-        ("Arabic (macOS)", "arabic-mac"),
-        ("Arabic – PC", "arabic-pc"),
-    ]
+    /// Valid user-supplied layouts, set by the app delegate before the window is created.
+    static var customLayouts: [KeyboardLayout] = []
+
+    private static func choices(_ builtIn: [(title: String, id: String?)], script: Script) -> [(title: String, id: String?)] {
+        builtIn + customLayouts.filter { $0.script == script }
+            .sorted { $0.id < $1.id }
+            .map { (title: "\($0.name) (custom)", id: Optional($0.id)) }
+    }
+
+    private static var englishChoices: [(title: String, id: String?)] {
+        choices([
+            ("Automatic (from enabled input sources)", nil),
+            ("US English / ABC", "us-english"),
+            ("British English", "uk-english-mac"),
+        ], script: .latin)
+    }
+
+    private static var arabicChoices: [(title: String, id: String?)] {
+        choices([
+            ("Automatic (from enabled input sources)", nil),
+            ("Arabic (macOS)", "arabic-mac"),
+            ("Arabic – PC", "arabic-pc"),
+        ], script: .arabic)
+    }
+
+    private let channelPopup = NSPopUpButton()
+    private let autoCheckCheckbox = NSButton(
+        checkboxWithTitle: "Check for updates once a day (never downloads or installs)", target: nil, action: nil)
 
     convenience init() {
         let window = NSWindow(
@@ -95,6 +120,10 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         arabicPopup.selectItem(at: Self.arabicChoices.firstIndex { $0.id == settings.arabicLayoutID } ?? 0)
         arabicPopup.target = self
         arabicPopup.action = #selector(changed)
+        for choice in Self.englishChoices { englishPopup.addItem(withTitle: choice.title) }
+        englishPopup.selectItem(at: Self.englishChoices.firstIndex { $0.id == settings.englishLayoutID } ?? 0)
+        englishPopup.target = self
+        englishPopup.action = #selector(changed)
 
         intervalStepper.minValue = 150
         intervalStepper.maxValue = 600
@@ -107,7 +136,14 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
 
         switchCheckbox.state = settings.switchesLayout ? .on : .off
         pasteCheckbox.state = settings.pasteFallbackEnabled ? .on : .off
-        for checkbox in [switchCheckbox, pasteCheckbox] {
+        for channel in UpdateChannel.allCases {
+            channelPopup.addItem(withTitle: channel == .stable ? "Stable releases only" : "Stable releases and previews")
+        }
+        channelPopup.selectItem(at: UpdateChannel.allCases.firstIndex(of: settings.updateChannel) ?? 0)
+        channelPopup.target = self
+        channelPopup.action = #selector(changed)
+        autoCheckCheckbox.state = settings.checksForUpdatesAutomatically ? .on : .off
+        for checkbox in [switchCheckbox, pasteCheckbox, autoCheckCheckbox] {
             checkbox.target = self
             checkbox.action = #selector(changed)
         }
@@ -121,10 +157,13 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
             [NSTextField(labelWithString: "Shortcut:"), recorder],
             [NSGridCell.emptyContentView, shortcutStatus],
             [NSTextField(labelWithString: "Arabic layout:"), arabicPopup],
+            [NSTextField(labelWithString: "English layout:"), englishPopup],
             [NSTextField(labelWithString: "Double-press window:"), interval],
             [NSGridCell.emptyContentView, switchCheckbox],
             [NSGridCell.emptyContentView, pasteCheckbox],
             [NSGridCell.emptyContentView, pasteNote],
+            [NSTextField(labelWithString: "Updates:"), channelPopup],
+            [NSGridCell.emptyContentView, autoCheckCheckbox],
         ])
         grid.column(at: 0).xPlacement = .trailing
         grid.rowSpacing = 10
@@ -174,9 +213,12 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
 
     @objc private func changed() {
         settings.arabicLayoutID = Self.arabicChoices[max(arabicPopup.indexOfSelectedItem, 0)].id
+        settings.englishLayoutID = Self.englishChoices[max(englishPopup.indexOfSelectedItem, 0)].id
         settings.doublePressMs = intervalStepper.integerValue
         settings.switchesLayout = switchCheckbox.state == .on
         settings.pasteFallbackEnabled = pasteCheckbox.state == .on
+        settings.updateChannel = UpdateChannel.allCases[max(channelPopup.indexOfSelectedItem, 0)]
+        settings.checksForUpdatesAutomatically = autoCheckCheckbox.state == .on
         updateIntervalLabel()
         onSettingsChanged?()
     }

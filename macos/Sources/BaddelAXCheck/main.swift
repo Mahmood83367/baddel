@@ -33,10 +33,13 @@ guard let store = try? BaddelResources.loadLayouts() else { fail("layouts-not-fo
 
 if flags.contains("--sources") {
     let switcher = InputSourceSwitcher(store: store)
+    switcher.preferredEnglishLayoutID = options["--english"]
+    switcher.preferredArabicLayoutID = options["--arabic"]
     print("enabledSources=\(switcher.enabledInputSourceIDs().joined(separator: ","))")
     print("currentSource=\(switcher.currentInputSourceID() ?? "-")")
     print("currentScript=\(switcher.currentScript()?.rawValue ?? "-")")
     print("resolvedArabic=\(switcher.resolvePair()?.arabic.id ?? "-")")
+    print("resolvedEnglish=\(switcher.resolvePair()?.latin.id ?? "-")")
     exit(0)
 }
 

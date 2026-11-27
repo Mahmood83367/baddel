@@ -8,6 +8,8 @@ public final class InputSourceSwitcher: LayoutSwitching {
     private let store: LayoutStore
     /// Layout id (`arabic-mac` / `arabic-pc`) to prefer, or `nil` for automatic.
     public var preferredArabicLayoutID: String?
+    /// Layout id (`us-english` / `uk-english-mac`) to prefer, or `nil` for automatic.
+    public var preferredEnglishLayoutID: String?
 
     public init(store: LayoutStore) {
         self.store = store
@@ -55,28 +57,27 @@ public final class InputSourceSwitcher: LayoutSwitching {
         return script(of: source)
     }
 
-    /// The layouts to convert between: US English and the user's Arabic
-    /// layout (the preferred one, else the first enabled known Arabic layout,
-    /// else macOS Arabic).
+    /// Explicit choices take priority, then the active or enabled sources.
     public func resolvePair() -> LayoutPair? {
-        guard let latin = store.layout(id: "us-english") else { return nil }
-        var arabic = preferredArabicLayoutID.flatMap { store.layout(id: $0) }
-        if arabic == nil {
-            arabic = enabledInputSourceIDs()
-                .compactMap { store.layout(platform: "macos", platformID: $0) }
-                .first { $0.script == .arabic }
+        let active = currentInputSourceID().flatMap { store.layout(platform: "macos", platformID: $0) }
+        let enabled = enabledInputSourceIDs().compactMap { store.layout(platform: "macos", platformID: $0) }
+        func resolve(_ preferred: String?, script: Script, fallback: String) -> KeyboardLayout? {
+            if let layout = preferred.flatMap({ store.layout(id: $0) }),
+               layout.script == script,
+               layout.platformIds["macos"]?.isEmpty == false || layout.id.hasPrefix(LayoutStore.customPrefix) {
+                return layout
+            }
+            if active?.script == script { return active }
+            return enabled.first { $0.script == script } ?? store.layout(id: fallback)
         }
-        guard let arabic = arabic ?? store.layout(id: "arabic-mac") else { return nil }
+        guard let latin = resolve(preferredEnglishLayoutID, script: .latin, fallback: "us-english"),
+              let arabic = resolve(preferredArabicLayoutID, script: .arabic, fallback: "arabic-mac") else { return nil }
         return LayoutPair(latin: latin, arabic: arabic)
     }
 
     public func selectLayout(for script: Script) -> Bool {
-        let candidates = enabledSources().filter { self.script(of: $0) == script }
-        guard !candidates.isEmpty else { return false }
-        let wanted = script == .arabic ? resolvePair()?.arabic : store.layout(id: "us-english")
-        let preferredIDs = wanted?.platformIds["macos"] ?? []
-        let choice = candidates.first { source in identifier(source).map(preferredIDs.contains) ?? false }
-            ?? candidates[0]
+        guard let ids = resolvePair()?.layout(for: script).platformIds["macos"],
+              let choice = enabledSources().first(where: { identifier($0).map(ids.contains) ?? false }) else { return false }
         return TISSelectInputSource(choice) == noErr
     }
 

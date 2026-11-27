@@ -3,6 +3,9 @@ name: CI
 on:
   push:
     branches: [main]
+    # A release tag runs every job on the tagged commit, plus the strict
+    # release-version check.
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -12,6 +15,36 @@ permissions:
 # Every job runs on a GitHub-hosted runner. No self-hosted runner is attached
 # to this repository, so code from pull requests never runs on a private machine.
 jobs:
+  # Ordinary check on every pull request and push: VERSION is a semantic
+  # version and is not lower than any published version. A change that does not
+  # publish anything passes without raising VERSION.
+  version:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # For pull requests, check the branch's own commit, not the merge commit.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Version guard tests
+        run: tools/test-check-version.sh
+      - name: VERSION is not lower than any published version
+        run: tools/check-version.sh
+
+  # Strict check when a release is tagged: the tag must be v<VERSION>, and that
+  # version must be published from exactly this commit. Reusing a published
+  # version for different content fails here.
+  release-version:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag matches VERSION
+        run: |
+          test "$GITHUB_REF_NAME" = "v$(tr -d '[:space:]' < VERSION)" \
+            || { echo "Tag $GITHUB_REF_NAME does not match VERSION $(cat VERSION)"; exit 1; }
+      - name: This version is published from this commit only
+        run: tools/check-version.sh --release
+
   macos:
     runs-on: macos-15
     steps:
@@ -90,8 +123,21 @@ jobs:
             dist/Baddel-*-windows-x64.zip
             dist/Baddel-*-windows-x64.zip.sha256
           if-no-files-found: error
-      # The hosted runner has a desktop session but only an English keyboard
-      # layout, so layout switching is not exercised here.
+      # The hosted runner starts with only a US English layout. This adds UK
+      # English and Arabic (101 and 102) to this throwaway machine's account so
+      # that switching to the exact layout can be exercised. If Windows declines,
+      # the checks say which layouts were available and skip what they cannot test.
+      - name: Add keyboard layouts to the runner account
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $list = New-WinUserLanguageList en-US
+          $list[0].InputMethodTips.Clear(); $list[0].InputMethodTips.Add('0409:00000409')
+          $list.Add('en-GB'); $list[1].InputMethodTips.Clear(); $list[1].InputMethodTips.Add('0809:00000809')
+          $list.Add('ar-SA'); $list[2].InputMethodTips.Clear()
+          $list[2].InputMethodTips.Add('0401:00000401'); $list[2].InputMethodTips.Add('0401:00010401')
+          Set-WinUserLanguageList $list -Force
+          Get-WinUserLanguageList | ForEach-Object { "$($_.LanguageTag): $($_.InputMethodTips -join ', ')" }
       - name: Desktop checks against the packaged app
         shell: pwsh
         run: |

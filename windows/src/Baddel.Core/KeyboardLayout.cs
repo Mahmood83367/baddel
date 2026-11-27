@@ -70,6 +70,11 @@ public sealed class LayoutStore
     {
     }
 
+    public LayoutStore(IEnumerable<KeyboardLayout> layouts)
+    {
+        Layouts = layouts.ToDictionary(layout => layout.Id);
+    }
+
     /// <summary>Builds a store from layout JSON documents (for example embedded resources).</summary>
     public LayoutStore(IEnumerable<string> documents)
     {

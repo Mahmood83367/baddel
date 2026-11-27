@@ -39,7 +39,7 @@ public class SharedFixtureTests
     [Fact]
     public void LayoutsLoad()
     {
-        Assert.Equal(new[] { "arabic-mac", "arabic-pc", "arabic-windows-101", "arabic-windows-102", "us-english" }, Store.Layouts.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
+        Assert.Equal(new[] { "arabic-mac", "arabic-pc", "arabic-windows-101", "arabic-windows-102", "uk-english-mac", "uk-english-windows", "us-english" }, Store.Layouts.Keys.OrderBy(k => k, StringComparer.Ordinal).ToArray());
         Assert.All(Store.Layouts.Values, layout => Assert.Equal(47, layout.Keys.Count));
     }
 

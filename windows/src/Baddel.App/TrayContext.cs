@@ -9,7 +9,10 @@ namespace Baddel.App;
 /// <summary>The notification-area icon, its menu, and the correction workflow.</summary>
 internal sealed class TrayContext : ApplicationContext
 {
-    private readonly LayoutStore store = EmbeddedLayouts.Load();
+    private readonly LayoutStore store = EmbeddedLayouts.LoadWithCustom(AppSettings.CustomLayoutsDirectory);
+    private readonly ToolStripMenuItem updateItem = new("Check for updates…");
+    private readonly System.Windows.Forms.Timer updateTimer = new() { Interval = 60 * 60 * 1000 };
+    private string? availableUpdatePage;
     private readonly HotKeyListener hotKeys = new();
     private readonly StaWorker worker = new();
     private readonly FocusProvider focus = new();
@@ -41,6 +44,8 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(undoItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Settings…", null, (_, _) => ShowSettings());
+        updateItem.Click += (_, _) => CheckForUpdates();
+        menu.Items.Add(updateItem);
         menu.Items.Add("About Baddel", null, (_, _) => AboutForm.ShowSingle());
         menu.Items.Add("Exit", null, (_, _) => ExitThread());
 
@@ -57,6 +62,9 @@ internal sealed class TrayContext : ApplicationContext
         hotKeys.Pressed += HotKeyPressed;
         hotKeys.Register(settings.HotKey);
         RefreshMenu();
+        updateTimer.Tick += (_, _) => CheckAutomaticallyIfDue();
+        updateTimer.Start();
+        CheckAutomaticallyIfDue();
         if (!hotKeys.IsRegistered)
         {
             icon.ShowBalloonTip(
@@ -127,7 +135,10 @@ internal sealed class TrayContext : ApplicationContext
             var captured = capturedField;
             capturedField = null;
             focus.Paster = current.PasteFallback ? new ClipboardPaster() : null;
-            var pair = EmbeddedLayouts.Pair(store, current.ArabicLayout);
+            var pair = EmbeddedLayouts.Pair(store, current.ArabicLayout, current.EnglishLayout);
+            // Switch only to the exact layouts the conversion uses.
+            switcher.LatinKlid = EmbeddedLayouts.Klid(pair.Latin) ?? InputLanguageSwitcher.NoSystemLayout;
+            switcher.ArabicKlid = EmbeddedLayouts.Klid(pair.Arabic) ?? InputLanguageSwitcher.NoSystemLayout;
             var engine = new CorrectionEngine(new CorrectionPlanner(pair), focus, switcher) { SwitchesLayout = current.SwitchLayout };
             var result = engine.Correct(mode, captured);
             var anchored = captured as IAnchoredField;
@@ -208,6 +219,83 @@ internal sealed class TrayContext : ApplicationContext
         if (old is not null && !old.IsDisposed) old.Close();
     }
 
+    // Updates ----------------------------------------------------------------
+
+    /// <summary>
+    /// Manual check: asks GitHub for the release list and reports the result.
+    /// Nothing is downloaded or installed; the release page opens in the browser.
+    /// </summary>
+    private async void CheckForUpdates()
+    {
+        if (availableUpdatePage is not null)
+        {
+            OpenPage(availableUpdatePage);
+            return;
+        }
+        var channel = settings.Channel;
+        var result = await UpdateChecker.CheckAsync(Program.Version, channel);
+        if (result is null)
+        {
+            MessageBox.Show("The release list could not be read. Check your connection and try again.", "Baddel", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        NoteUpdate(result);
+        var kind = channel == UpdateChannel.Stable ? "stable release" : "release";
+        if (result.UpdateAvailable && result.ReleasePage is not null)
+        {
+            var open = MessageBox.Show(
+                $"Baddel {result.Latest} is available. You have {result.Current}.\n\n"
+                + "Baddel does not install updates itself. Open the release page to download it and check its SHA-256?",
+                "Baddel", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+            if (open == DialogResult.Yes) OpenPage(result.ReleasePage);
+        }
+        else if (result.Latest is not null)
+        {
+            MessageBox.Show($"Baddel is up to date. You have {result.Current}; the newest {kind} is {result.Latest}.", "Baddel");
+        }
+        else
+        {
+            MessageBox.Show(
+                $"There is no {kind} yet. You have {result.Current}.\n\nTo hear about previews, choose \"Stable releases and previews\" in Settings.",
+                "Baddel");
+        }
+    }
+
+    private void NoteUpdate(UpdateCheckResult result)
+    {
+        availableUpdatePage = result.UpdateAvailable ? result.ReleasePage : null;
+        updateItem.Text = availableUpdatePage is not null ? $"Baddel {result.Latest} is available — open release page" : "Check for updates…";
+    }
+
+    /// <summary>The opt-in daily check. It only changes the menu item; it shows no window.</summary>
+    private async void CheckAutomaticallyIfDue()
+    {
+        if (!settings.CheckForUpdatesAutomatically) return;
+        if (settings.LastAutomaticUpdateCheckUtc is { } last && DateTime.UtcNow - last < TimeSpan.FromHours(24)) return;
+        settings.LastAutomaticUpdateCheckUtc = DateTime.UtcNow;
+        try
+        {
+            settings.Save();
+        }
+        catch (Exception)
+        {
+        }
+        if (await UpdateChecker.CheckAsync(Program.Version, settings.Channel) is { } result) NoteUpdate(result);
+    }
+
+    /// <summary>Opens an official release page in the default browser; anything else is ignored.</summary>
+    private static void OpenPage(string page)
+    {
+        if (!page.StartsWith(UpdateCheck.OfficialReleasePrefix, StringComparison.Ordinal)) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(page) { UseShellExecute = true });
+        }
+        catch (Exception)
+        {
+        }
+    }
+
     // Settings ---------------------------------------------------------------
 
     private void ShowSettings()
@@ -217,11 +305,13 @@ internal sealed class TrayContext : ApplicationContext
             settingsForm.Activate();
             return;
         }
-        settingsForm = new SettingsForm(settings, hotKeys);
+        settingsForm = new SettingsForm(settings, hotKeys, store);
         settingsForm.Applied += updated =>
         {
+            updated.LastAutomaticUpdateCheckUtc = settings.LastAutomaticUpdateCheckUtc;
             settings = updated;
             settings.Save();
+            CheckAutomaticallyIfDue();
             detector = new DoublePressDetector(settings.ClampedDoublePressMs);
             timer.Stop();
             capturedField = null;
@@ -244,6 +334,7 @@ internal sealed class TrayContext : ApplicationContext
             icon.Visible = false;
             icon.Dispose();
             timer.Dispose();
+            updateTimer.Dispose();
             hotKeys.Dispose();
             worker.Dispose();
             dispatcher.Dispose();

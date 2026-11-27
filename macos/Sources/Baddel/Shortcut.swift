@@ -1,4 +1,5 @@
 import AppKit
+import BaddelCore
 import Carbon.HIToolbox
 
 /// A global shortcut: a virtual key code plus Carbon modifier flags.
@@ -83,6 +84,12 @@ final class Settings {
         set { defaults.set(newValue, forKey: "arabicLayoutID") }
     }
 
+    /// `nil` means "detect from the enabled input sources".
+    var englishLayoutID: String? {
+        get { defaults.string(forKey: "englishLayoutID") }
+        set { defaults.set(newValue, forKey: "englishLayoutID") }
+    }
+
     /// Window for the second press, in milliseconds.
     var doublePressMs: Int {
         get {
@@ -95,6 +102,24 @@ final class Settings {
     var switchesLayout: Bool {
         get { defaults.object(forKey: "switchesLayout") == nil ? true : defaults.bool(forKey: "switchesLayout") }
         set { defaults.set(newValue, forKey: "switchesLayout") }
+    }
+
+    /// Which releases "Check for Updates" reports. Stable unless the user chooses previews.
+    var updateChannel: UpdateChannel {
+        get { defaults.string(forKey: "updateChannel").flatMap(UpdateChannel.init(rawValue:)) ?? .stable }
+        set { defaults.set(newValue.rawValue, forKey: "updateChannel") }
+    }
+
+    /// Off by default. When on, Baddel asks GitHub for the release list once a
+    /// day and mentions a newer version in its menu. It never downloads or installs.
+    var checksForUpdatesAutomatically: Bool {
+        get { defaults.bool(forKey: "checksForUpdatesAutomatically") }
+        set { defaults.set(newValue, forKey: "checksForUpdatesAutomatically") }
+    }
+
+    var lastAutomaticUpdateCheck: Date? {
+        get { defaults.object(forKey: "lastAutomaticUpdateCheck") as? Date }
+        set { defaults.set(newValue, forKey: "lastAutomaticUpdateCheck") }
     }
 
     /// Experimental and off by default.

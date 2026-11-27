@@ -97,7 +97,7 @@ internal static class Program
         {
             if (Option("--dump-layouts") is { } directory) return DumpLayouts(directory);
             Log($"machine={Environment.MachineName} os={Environment.OSVersion.Version} session={Process.GetCurrentProcess().SessionId} interactive={Environment.UserInteractive}");
-            Log($"installedLayouts={string.Join(",", InputLanguageSwitcher.InstalledLayouts().Select(InputLanguageSwitcher.Format))}");
+            Log($"installedLayoutIds={string.Join(",", InputLanguageSwitcher.InstalledLayouts().Select(l => InputLanguageSwitcher.KlidOf(l) ?? "unknown"))}");
             if (Flag("--engine")) EngineChecks();
             if (Option("--e2e") is { } app) EndToEnd(app, Flag("--notepad"));
         }
@@ -119,6 +119,7 @@ internal static class Program
         var layouts = new[]
         {
             ("00000409", "us-english-windows", "US English (Windows)", "latin"),
+            ("00000809", "uk-english-windows", "UK English (Windows)", "latin"),
             ("00000401", "arabic-windows-101", "Arabic (101)", "arabic"),
             ("00010401", "arabic-windows-102", "Arabic (102)", "arabic"),
         };
@@ -342,8 +343,8 @@ internal static class Program
             {
                 AppCase(hotKey, "one press fixes only the last word", "hgsghl ugd;l", "hgsghl عليكم", 12, 1, 0, "ar", false, null);
                 AppCase(hotKey, "two presses 120 ms apart fix the whole field once", "hgsghl ugd;l", "السلام عليكم", 12, 2, 120, "ar", false, null);
-                AppCase(hotKey, "English typed as Arabic: layout switches to Arabic", "ugd;l", "عليكم", 5, 1, 0, "en", true, Script.Arabic);
-                AppCase(hotKey, "Arabic typed as English: layout switches to English", "اثممخ", "hello", 5, 1, 0, "ar", true, Script.Latin);
+                AppCase(hotKey, "English typed as Arabic: layout switches to Arabic", "ugd;l", "عليكم", 5, 1, 0, "en", true, Script.Arabic, "00000401");
+                AppCase(hotKey, "Arabic typed as English: layout switches to English", "اثممخ", "hello", 5, 1, 0, "ar", true, Script.Latin, "00000409");
                 if (notepad) NotepadCase(hotKey);
             });
             // Settings are read from a throwaway folder, never from the real profile.
@@ -351,6 +352,50 @@ internal static class Program
             {
                 AppCase(hotKey, "settings: Arabic (102) and a custom shortcut are used", "\\hg", "ذال", 3, 1, 0, "ar", false, null);
             });
+            // A chosen variant decides both the table and which installed layout is
+            // selected. If that exact layout is not installed, nothing is switched.
+            WithApp(appPath, new AppSettings { ArabicLayout = "arabic-windows-102" }, hotKey =>
+            {
+                AppCase(hotKey, "Arabic (102) chosen: converted with its table", "\\hg", "ذال", 3, 1, 0, "en", false, null, "00010401");
+            });
+            // The pound key: UK types # on the key that is backslash on Arabic (101);
+            // on the US layout # is Shift+3, which is # on Arabic (101) as well.
+            WithApp(appPath, new AppSettings { EnglishLayout = "uk-english-windows" }, hotKey =>
+            {
+                AppCase(hotKey, "UK English chosen: converted with the UK table", "ugd;l#", "عليكم\\", 6, 1, 0, "en", false, null);
+                AppCase(hotKey, "UK English chosen: switching back to English", "اثممخ", "hello", 5, 1, 0, "ar", false, null, "00000809");
+            });
+            WithApp(appPath, new AppSettings { EnglishLayout = "us-english" }, hotKey =>
+            {
+                AppCase(hotKey, "US English chosen: converted with the US table", "ugd;l#", "عليكم#", 6, 1, 0, "en", false, null);
+            });
+            // A settings file written by 0.1.0 has no English choice: US English.
+            WithApp(appPath, null, hotKey =>
+            {
+                AppCase(hotKey, "no English choice stored: US English", "ugd;l#", "عليكم#", 6, 1, 0, "en", false, null);
+            }, rawSettings: "{ \"Shortcut\": \"Ctrl+Alt+Space\", \"ArabicLayout\": \"arabic-windows-101\", \"DoublePressMs\": 300, \"SwitchLayout\": true, \"PasteFallback\": false }");
+            // A user-supplied layout: US English with a section sign on the 1 key.
+            // It is validated and loaded from the settings folder, converts by its
+            // own table, and - having no Windows layout behind it - never switches.
+            var customJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                id = "custom-check", name = "Check layout", script = "arabic",
+                platformIds = new Dictionary<string, string[]>(),
+                keys = EmbeddedLayouts.Load().Get("arabic-windows-101").Keys.Select(k => new
+                {
+                    code = k.Code, @base = k.Code == "Digit1" ? "\u0661" : k.Base, shift = k.Shift,
+                }),
+            });
+            WithApp(appPath, new AppSettings { ArabicLayout = "custom-check" }, hotKey =>
+            {
+                AppCase(hotKey, "custom layout from a file: converted with its table", "ugd;l1", "عليكم\u0661", 6, 1, 0, "en", false, null);
+                AppCase(hotKey, "custom layout: the keyboard is not switched", "ugd;l", "عليكم", 5, 1, 0, "en", false, null, InputLanguageSwitcher.NoSystemLayout);
+            }, customLayout: customJson);
+            // A broken custom file is ignored and the default is used.
+            WithApp(appPath, new AppSettings { ArabicLayout = "custom-check" }, hotKey =>
+            {
+                AppCase(hotKey, "invalid custom layout is ignored: default Arabic (101) is used", "ugd;l1", "عليكم1", 6, 1, 0, "en", false, null);
+            }, customLayout: customJson.Replace("\"Digit1\"", "\"NotAKey\""));
             WithApp(appPath, new AppSettings { ArabicLayout = "arabic-windows-101" }, hotKey =>
             {
                 AppCase(hotKey, "settings: Arabic (101) is used", "\\hg", "\\ال", 3, 1, 0, "ar", false, null);
@@ -362,11 +407,17 @@ internal static class Program
         }
     }
 
-    private static void WithApp(string appPath, AppSettings? settings, Action<HotKey> body)
+    private static void WithApp(string appPath, AppSettings? settings, Action<HotKey> body, string? rawSettings = null, string? customLayout = null)
     {
         var settingsDirectory = Path.Combine(Path.GetTempPath(), "baddel-check-settings-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(settingsDirectory);
         if (settings is not null) File.WriteAllText(Path.Combine(settingsDirectory, "settings.json"), settings.Serialize());
+        if (rawSettings is not null) File.WriteAllText(Path.Combine(settingsDirectory, "settings.json"), rawSettings);
+        if (customLayout is not null)
+        {
+            Directory.CreateDirectory(Path.Combine(settingsDirectory, "layouts"));
+            File.WriteAllText(Path.Combine(settingsDirectory, "layouts", "check.json"), customLayout);
+        }
         var info = new ProcessStartInfo(appPath) { UseShellExecute = false };
         info.Environment["BADDEL_SETTINGS_DIR"] = settingsDirectory;
         // The packaged app is self-contained; make sure it is not helped by a shared runtime.
@@ -399,7 +450,8 @@ internal static class Program
     }
 
     private static void AppCase(
-        HotKey hotKey, string name, string initial, string expected, int caret, int presses, int gapMs, string layout, bool undo, Script? layoutAfter)
+        HotKey hotKey, string name, string initial, string expected, int caret, int presses, int gapMs, string layout, bool undo, Script? layoutAfter,
+        string? expectedKlid = null)
     {
         var installed = InputLanguageSwitcher.InstalledLayouts().Select(InputLanguageSwitcher.ScriptOf).ToArray();
         if (layoutAfter is not null && !(installed.Contains(Script.Arabic) && installed.Contains(Script.Latin)))
@@ -431,6 +483,17 @@ internal static class Program
         var scriptAfter = switcher.CurrentScript();
         var layoutOk = layoutAfter is null || scriptAfter == layoutAfter;
         Check(name, corrected && layoutOk, $"textMatches={corrected} layout={layoutBefore}->{scriptAfter}");
+        if (expectedKlid is not null && corrected)
+        {
+            // The layout Windows is now using must be the very layout whose table
+            // did the conversion - or, if that layout is not installed, unchanged.
+            var installedNow = InputLanguageSwitcher.IsInstalled(expectedKlid);
+            var klidAfter = switcher.CurrentKlid();
+            Check(
+                name + (installedNow ? " / Windows switched to the same layout used for conversion" : " / layout not installed, keyboard left as it was"),
+                installedNow ? string.Equals(klidAfter, expectedKlid, StringComparison.OrdinalIgnoreCase) : scriptAfter == layoutBefore,
+                $"wanted={expectedKlid} installed={installedNow} active={klidAfter}");
+        }
         if (!undo || !corrected) return;
 
         var popup = FindUndoPopup();

@@ -1,6 +1,8 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
+using Baddel.Core;
 using Baddel.Windows;
 
 namespace Baddel.App;
@@ -14,25 +16,28 @@ internal sealed class SettingsForm : Form
     private readonly HotKeyListener hotKeys;
     private readonly TextBox shortcutBox = new() { ReadOnly = true, Width = 220, ShortcutsEnabled = false };
     private readonly Label shortcutStatus = new() { AutoSize = true, ForeColor = SystemColors.GrayText };
-    private readonly ComboBox arabicBox = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
+    private readonly ComboBox arabicBox = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
+    private readonly ComboBox englishBox = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
+    private readonly Label layoutStatus = new() { AutoSize = true, ForeColor = SystemColors.GrayText };
     private readonly NumericUpDown interval = new() { Minimum = 150, Maximum = 600, Increment = 25, Width = 80 };
     private readonly CheckBox switchLayout = new() { Text = "Switch the keyboard layout after a correction", AutoSize = true };
     private readonly CheckBox pasteFallback = new() { Text = "Paste fallback for controls that refuse direct edits (experimental)", AutoSize = true };
+    private readonly ComboBox channelBox = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260 };
+    private readonly CheckBox autoCheck = new() { Text = "Check for updates once a day (never downloads or installs)", AutoSize = true };
     private readonly AppSettings working;
     private HotKey activeHotKey;
 
-    private static readonly (string Title, string Id)[] ArabicChoices =
-    {
-        ("Arabic (101)", "arabic-windows-101"),
-        ("Arabic (102)", "arabic-windows-102"),
-    };
+    private readonly KeyboardLayout[] arabicChoices;
+    private readonly KeyboardLayout[] englishChoices;
 
     /// <summary>Raised with the updated settings each time something is applied.</summary>
     public event Action<AppSettings>? Applied;
 
-    public SettingsForm(AppSettings settings, HotKeyListener hotKeys)
+    public SettingsForm(AppSettings settings, HotKeyListener hotKeys, LayoutStore store)
     {
         this.hotKeys = hotKeys;
+        arabicChoices = EmbeddedLayouts.Choices(store, Script.Arabic).ToArray();
+        englishChoices = EmbeddedLayouts.Choices(store, Script.Latin).ToArray();
         working = AppSettings.Parse(settings.Serialize());
         activeHotKey = working.HotKey;
 
@@ -53,17 +58,27 @@ internal sealed class SettingsForm : Form
         shortcutBox.Leave += (_, _) => hotKeys.Register(activeHotKey);
         shortcutBox.KeyDown += ShortcutKeyDown;
 
-        foreach (var choice in ArabicChoices) arabicBox.Items.Add(choice.Title);
-        arabicBox.SelectedIndex = Math.Max(Array.FindIndex(ArabicChoices, c => c.Id == working.ArabicLayout), 0);
+        foreach (var choice in arabicChoices) arabicBox.Items.Add(choice.Name);
+        foreach (var choice in englishChoices) englishBox.Items.Add(choice.Name);
+        arabicBox.SelectedIndex = Math.Max(Array.FindIndex(arabicChoices, c => c.Id == working.ArabicLayout), 0);
+        englishBox.SelectedIndex = Math.Max(Array.FindIndex(englishChoices, c => c.Id == working.EnglishLayout), 0);
+        englishBox.SelectedIndexChanged += (_, _) => Apply();
         interval.Value = working.ClampedDoublePressMs;
         switchLayout.Checked = working.SwitchLayout;
         pasteFallback.Checked = working.PasteFallback;
 
+        channelBox.Items.Add("Stable releases only");
+        channelBox.Items.Add("Stable releases and previews");
+        channelBox.SelectedIndex = working.Channel == UpdateChannel.Preview ? 1 : 0;
+        autoCheck.Checked = working.CheckForUpdatesAutomatically;
+        channelBox.SelectedIndexChanged += (_, _) => Apply();
+        autoCheck.CheckedChanged += (_, _) => Apply();
         arabicBox.SelectedIndexChanged += (_, _) => Apply();
         interval.ValueChanged += (_, _) => Apply();
         switchLayout.CheckedChanged += (_, _) => Apply();
         pasteFallback.CheckedChanged += (_, _) => Apply();
 
+        UpdateLayoutStatus();
         var table = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Dock = DockStyle.Fill };
         void Row(string label, Control control)
         {
@@ -72,7 +87,9 @@ internal sealed class SettingsForm : Form
         }
         Row("Shortcut:", shortcutBox);
         Row(string.Empty, shortcutStatus);
+        Row("English layout:", englishBox);
         Row("Arabic layout:", arabicBox);
+        Row(string.Empty, layoutStatus);
         Row("Double-press window (ms):", interval);
         Row(string.Empty, switchLayout);
         Row(string.Empty, pasteFallback);
@@ -82,7 +99,21 @@ internal sealed class SettingsForm : Form
             AutoSize = true,
             ForeColor = SystemColors.GrayText,
         });
+        Row("Updates:", channelBox);
+        Row(string.Empty, autoCheck);
         Controls.Add(table);
+    }
+
+    /// <summary>Says plainly when a chosen layout is not installed, since Baddel will then not switch to it.</summary>
+    private void UpdateLayoutStatus()
+    {
+        var missing = new[] { englishChoices[Math.Max(englishBox.SelectedIndex, 0)], arabicChoices[Math.Max(arabicBox.SelectedIndex, 0)] }
+            .Where(layout => EmbeddedLayouts.Klid(layout) is not { } klid || !InputLanguageSwitcher.IsInstalled(klid))
+            .Select(layout => layout.Name)
+            .ToArray();
+        layoutStatus.Text = missing.Length == 0
+            ? "Both layouts are installed; Baddel switches to exactly these."
+            : $"Not installed in Windows: {string.Join(", ", missing)}. Text is still converted with it, but the keyboard is not switched.";
     }
 
     private void ShortcutKeyDown(object? sender, KeyEventArgs e)
@@ -113,10 +144,14 @@ internal sealed class SettingsForm : Form
     private void Apply()
     {
         working.Shortcut = activeHotKey.ToString();
-        working.ArabicLayout = ArabicChoices[Math.Max(arabicBox.SelectedIndex, 0)].Id;
+        working.ArabicLayout = arabicChoices[Math.Max(arabicBox.SelectedIndex, 0)].Id;
+        working.EnglishLayout = englishChoices[Math.Max(englishBox.SelectedIndex, 0)].Id;
+        UpdateLayoutStatus();
         working.DoublePressMs = (int)interval.Value;
         working.SwitchLayout = switchLayout.Checked;
         working.PasteFallback = pasteFallback.Checked;
+        working.UpdateChannel = channelBox.SelectedIndex == 1 ? "preview" : "stable";
+        working.CheckForUpdatesAutomatically = autoCheck.Checked;
         Applied?.Invoke(AppSettings.Parse(working.Serialize()));
     }
 }

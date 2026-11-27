@@ -1,187 +1,80 @@
-# Baddel — بدّل
+# Baddel | بدّل
 
-Baddel fixes text typed with the wrong keyboard layout. You meant to write
-`عليكم` but the keyboard was on English and you got `ugd;l` — press the
-shortcut and Baddel rewrites it in place and switches the layout for you.
+[العربي](README.ar.md) · [Download on Cloudflare](https://baddel.mahmood94abdelbary.workers.dev) · [GitHub releases](https://github.com/Mahmood83367/baddel/releases)
 
-It is an original, open-source utility for Arabic and English. Everything runs
-locally on your computer.
+Baddel fixes Arabic or English text typed with the wrong keyboard layout. If you meant to type `عليكم` and got `ugd;l`, press the shortcut to fix it in place and keep typing. بدّل أداة مفتوحة المصدر لتصحيح الكتابة بين الكيبورد العربي والإنكليزي.
 
-| Platform | Status in 0.1.0 |
-|---|---|
-| macOS 13+ (Apple silicon and Intel) | Menu bar app |
-| Windows 10 / 11 (x64) | Notification-area app |
-| Linux (x64) | Not released. A prototype exists, tested only in an X11 CI session — see [linux/README.md](linux/README.md) |
+![Illustrated demo. One press fixes the last word, two presses fix the whole field, and Undo restores the original text and keyboard layout.](docs/media/baddel-demo.gif)
 
-This first release is about correction only. The clipboard history described
-in [docs/CLIPBOARD_HISTORY.md](docs/CLIPBOARD_HISTORY.md) is **upcoming and not
-part of this release**.
+## Correct what you typed
 
-## What it does
+- **Press once.** Baddel fixes the selection, or the last word before the cursor if you haven't selected anything.
+- **Press twice quickly.** Baddel fixes the current text field as one edit. The default double-press window is 300 ms.
+- **Keep typing or undo.** After verifying the edit, Baddel switches to the matching keyboard if it's enabled in your system. Click **Undo** to restore the original text and layout while the corrected field still has focus and its text is unchanged.
 
-- **Press the shortcut once**: fixes exactly the selected text. With no
-  selection, fixes the last word before the caret.
-- **Press it twice within about 300 ms**: fixes the entire focused text field in
-  one operation. Baddel waits for the second press before changing anything,
-  ignores a held key, and checks that the same field still has focus.
-- **Switches the active keyboard layout** to match, once the edit is verified.
-- **Shows a small Undo button** next to the edited text. Undo restores the
-  original text and the previous layout, but only while the same field still
-  holds exactly the corrected text. Clicking it does not take focus away from
-  the field.
-- **Skips what it should not touch**: password fields, read-only fields, fields
-  it cannot read or write reliably, and text that changed between reading and
-  writing.
+| Platform | Default shortcut | Where to find Baddel |
+| --- | --- | --- |
+| macOS 13+ (Apple silicon and Intel) | `⌥⇧Space` | Keyboard icon in the menu bar |
+| Windows x64 | `Ctrl+Alt+Space` | Notification area near the clock |
+| Linux x64 prototype, X11 | `Ctrl+Alt+Space` | Start `baddel` in your desktop session |
 
-| | macOS | Windows |
-|---|---|---|
-| Default shortcut | ⌥⇧Space | Ctrl+Alt+Space |
-| Where it lives | Keyboard icon in the menu bar | Blue icon in the notification area |
-| Settings and About | Menu bar icon | Right-click the icon |
+Use a supported, editable text field. Baddel skips password fields and fields it can't safely modify. See the [tested environments](docs/TESTING.md) for application coverage.
 
 ## Download and install
 
-Packages are attached to the [releases](https://github.com/Mahmood83367/baddel/releases)
-of this repository. Each ZIP contains the app, `LICENSE`, a `README.txt` with
-these instructions, and `SHA256SUMS.txt`; a `.sha256` file for the ZIP itself
-is published next to it.
-
-**Signing status of 0.1.0, stated plainly:** the macOS app is ad-hoc signed and
-**not notarized** by Apple; the Windows executable is **not code-signed**. Both
-systems will warn you before running software they cannot identify. Those
-warnings are the operating system protecting you. Baddel does not, and will
-not, switch them off for you; whether to proceed is your decision.
+Get the matching archive from [GitHub releases](https://github.com/Mahmood83367/baddel/releases). The [Cloudflare page](https://baddel.mahmood94abdelbary.workers.dev) links to public downloads. Check the release notes for signing status and the corresponding SHA-256 file. The `0.1.0` preview contains macOS and Windows correction. This guide also covers the clipboard, additional layouts, and Linux in newer builds.
 
 ### macOS
 
-1. Download `Baddel-<version>-macos-universal.zip` and extract it.
-2. Optional: run `shasum -a 256 -c SHA256SUMS.txt` inside the folder.
-3. Move `Baddel.app` to Applications and open it. If macOS refuses because it
-   cannot check the developer, and you trust the download, use
-   **System Settings → Privacy & Security → Open Anyway**.
-4. Baddel explains why it needs **Accessibility** access and opens the right
-   settings pane. You enable it there yourself.
+1. Unzip the macOS universal archive and move `Baddel.app` to **Applications**.
+2. Open Baddel and grant **Accessibility** under **System Settings → Privacy & Security**. Baddel uses that access to edit the focused text field.
+3. Open a text editor, type a test word with the wrong keyboard enabled, and press `⌥⇧Space`.
+
+For a build without Apple notarization, which includes the `0.1.0` preview, check its published SHA-256 before deciding to use Apple's option to [open a trusted app once](https://support.apple.com/en-us/102445).
 
 ### Windows
 
-1. Download `Baddel-<version>-windows-x64.zip` and extract the whole folder,
-   for example to `%LOCALAPPDATA%\Programs\Baddel`.
-2. Optional: compare `Get-FileHash Baddel.exe -Algorithm SHA256` with
-   `SHA256SUMS.txt`.
-3. Run `Baddel.exe`. If SmartScreen warns, and you trust the download, choose
-   **More info → Run anyway**.
+1. Extract the whole Windows x64 ZIP to a folder you can keep.
+2. Run `Baddel.exe`. The portable package includes its .NET runtime.
+3. Right-click the icon by the clock to open **Settings**. Try a correction in Notepad with `Ctrl+Alt+Space`.
 
-It is a portable app: no installer, no administrator rights, no .NET install.
-Settings are stored in `%APPDATA%\Baddel\settings.json`. To start it with
-Windows, put a shortcut to `Baddel.exe` in the folder opened by `shell:startup`.
-To remove it, exit Baddel and delete the folder.
+For an unsigned preview, check the release notes and SHA-256. Windows may show a [SmartScreen warning](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation).
 
-Baddel does not run elevated, so it cannot edit windows of programs that run as
-administrator.
+### Linux
 
-## Keyboard layouts
+Download the Linux x64 archive when it's listed under the release assets. Extract it and run `./baddel` from its folder in an X11 desktop session. Follow the [Linux setup guide](linux/README.md) for dependencies, accessibility, and XKB settings.
 
-The mapping data in [`shared/layouts`](shared/layouts) is generated from each
-operating system's own layout tables, never typed by hand, and two layouts are
-never assumed to be the same because their names are similar.
+The prototype passed its X11 tests on Ubuntu 24.04 with a GTK text field in automated CI. It hasn't been run on a real desktop yet. Wayland has a desktop-bound trigger path, with manual layout switching and command-line Undo. Wayland desktop behavior still needs testing.
 
-| | Arabic (choose in Settings) | English |
-|---|---|---|
-| macOS | Arabic, Arabic – PC | US English ("U.S." and "ABC") |
-| Windows | Arabic (101), Arabic (102) | US English |
+## Choose your Arabic and English layouts
 
-**Current limit: US English is the only English layout.** Other English
-layouts (UK, for example), detection of the layouts you have installed, and
-custom mappings are on the [roadmap](docs/ROADMAP.md).
+Open **Settings** on macOS or Windows. Pick the layouts you type with and set a shortcut that suits you. Enable the same input sources in your operating system if you want Baddel to switch between them.
 
-## Privacy
+| Platform | Arabic | English |
+| --- | --- | --- |
+| macOS | Automatic, Arabic, Arabic–PC | Automatic, U.S. / ABC, British |
+| Windows | Arabic (101), Arabic (102) | US, United Kingdom |
+| Linux X11 | Your configured Arabic XKB layout and variant | Your configured English XKB layout and variant |
 
-- No keystroke logging. Baddel registers a single system hot key
-  (`RegisterEventHotKey` on macOS, `RegisterHotKey` on Windows) and is only told
-  when that combination is pressed. It installs no event tap, no keyboard hook
-  and no global key monitor.
-- No network access. There is no updater in this release; text is read from the
-  focused field only when you press the shortcut, converted in memory, and
-  written back.
-- Diagnostics contain outcome codes and lengths. They never contain the text;
-  the diagnostic record type has no field that could hold it.
-- The original text is kept in memory only while the Undo button is on screen
-  (about six seconds).
-- The optional paste fallback (off by default) saves your clipboard, pastes
-  over a verified selection, and restores the clipboard afterwards.
+For an advanced manual mapping, use the verified JSON layout format from [`shared/layouts/`](shared/layouts/). On macOS put a valid custom layout in `~/Library/Application Support/Baddel/Layouts`. On Windows use `%APPDATA%\Baddel\layouts`. Use a unique ID starting with `custom-`, then restart Baddel and select it in Settings. A custom file controls the conversion map. Switching to a matching system input source is available for recognized system layouts. Baddel checks the file before using it; the [layout guide](docs/LAYOUTS.md) lists the rules.
 
-## How the text is decided
+## Clipboard history on macOS
 
-The full rules, including the **whole-field rule for mixed-script text**, are in
-[docs/CORRECTION_RULES.md](docs/CORRECTION_RULES.md). In short:
+1. Open **Clipboard History** from the menu bar or press `⌥⇧V`.
+2. Turn on **Keep clipboard history on this Mac**. Then copy text, images, or Finder files as usual.
+3. Reopen the history, search for an entry, and click **Copy**. Return to your app and press `⌘V`.
+4. For a file you want to retain after deleting its original, select it and choose **Keep File Copy**.
 
-- The direction comes from the text itself: Latin letters mean it was typed on
-  the English layout, Arabic letters mean the Arabic layout. The active layout
-  is only a tie-breaker.
-- Conversion is by physical key, so punctuation that stands for a letter is
-  handled: `ugd;l` → `عليكم`.
-- In a whole field with both scripts, the script with more letters is treated
-  as the mistyped one and is converted; words already in the other script are
-  left exactly as they are.
-- Whitespace is never changed. The last-word fix skips spaces between the word
-  and the caret and keeps them.
+The history keeps up to 100 recent items locally. **Clear Recent** clears those entries. Use **Delete** on a pinned entry to remove its saved copy.
 
-## What has been tested
+## Updates and privacy
 
-Exactly which scenarios were run, on which machine, and what has **not** been
-verified is recorded in [docs/TESTING.md](docs/TESTING.md). In brief: on macOS
-against TextEdit; on Windows 11 against standard edit controls, rich-edit
-controls and Notepad, in a real desktop session. Browsers, Electron apps,
-Microsoft Office and other custom text surfaces have not been verified on
-either platform; Baddel is built to refuse those safely rather than guess.
+Use **Check for Updates** in the macOS menu bar or Windows notification area. On Linux run `./baddel --check-updates stable` or choose `preview`. Choose **Stable releases and previews** in Settings to include test releases. The optional daily check on macOS and Windows reports a newer release. Download and install it manually from the official release page while signed automatic installation is being prepared.
 
-## Build from source
+Corrections happen on your computer. Baddel reads the focused text when you trigger correction and keeps optional clipboard history locally. The update check contacts GitHub for release information. See the [correction rules](docs/CORRECTION_RULES.md), [clipboard history](docs/CLIPBOARD_HISTORY.md), [updates](docs/UPDATES.md), and the [roadmap](docs/ROADMAP.md).
 
-```bash
-# macOS (Xcode 15 or later)
-cd macos && swift test && ./scripts/build-app.sh
-```
+## Contribute
 
-```powershell
-# Windows (.NET 8 SDK)
-dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
-dotnet test windows/tests/Baddel.Windows.Tests/Baddel.Windows.Tests.csproj
-dotnet run --project windows/src/Baddel.App
-```
+Start from the `main` branch when forking on GitHub and open pull requests against `main`. For build commands, checks, and how to update both language versions, see [Contributing](CONTRIBUTING.md). See [Release packaging](docs/RELEASING.md) for reproducible downloads and verification.
 
-Release packaging is described in [docs/RELEASING.md](docs/RELEASING.md).
-
-## Repository layout
-
-```
-shared/     Layout data and test fixtures used by every platform
-macos/      Swift package: BaddelCore (pure logic), BaddelMacKit (system APIs), the app
-windows/    C#: Baddel.Core (pure logic), Baddel.Windows (system APIs), the app, check tool
-linux/      C# prototype on the same core: X11, AT-SPI, XKB
-tools/      Script that generates the macOS layout data from the system tables
-docs/       Rules, architecture, testing record, releasing, roadmap, designs
-```
-
-## Roadmap
-
-Clipboard history for macOS, a Linux desktop version, more keyboard layouts
-with manual and automatic selection, and opt-in signed updates. Details in
-[docs/ROADMAP.md](docs/ROADMAP.md).
-
-## License, copies and forks
-
-Baddel is released under the [MIT License](LICENSE).
-Copyright (c) 2026 Mahmood.
-
-The MIT License lets you use, copy, modify and redistribute the software.
-Its one condition is that **the copyright notice and the license notice are
-kept in all copies or substantial portions of the software** — so a fork or
-copy that redistributes Baddel, in source or binary form, must retain the
-`LICENSE` file with the original copyright line. This paragraph only restates
-the license; it adds no terms.
-
-If you fork the repository on GitHub, we recommend leaving **"Copy the `main`
-branch only"** selected, and opening pull requests against `main`. That is a
-recommendation for keeping contributions simple, not a restriction: a public
-repository cannot limit which branches are forked. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+**Copyright © 2026 Mahmood.** Baddel uses the [MIT License](LICENSE). Preserve the copyright and license notices when sharing copies or substantial portions of the software.

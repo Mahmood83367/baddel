@@ -30,7 +30,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/layouts"
 cp "$BINARY" "$APP/Contents/MacOS/Baddel"
 sed "s/__VERSION__/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 # Only the layouts this platform uses; the Windows layout tables stay out.
-for layout in us-english arabic-mac arabic-pc; do
+for layout in us-english uk-english-mac arabic-mac arabic-pc; do
   cp "../shared/layouts/$layout.json" "$APP/Contents/Resources/layouts/"
 done
 cp ../LICENSE "$APP/Contents/Resources/LICENSE"

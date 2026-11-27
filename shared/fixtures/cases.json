@@ -1,6 +1,13 @@
 {
   "conversions": [
     {
+      "name": "British Mac shift-3 maps by physical key",
+      "from": "uk-english-mac",
+      "to": "arabic-pc",
+      "input": "£",
+      "output": "#"
+    },
+    {
       "name": "greeting punctuation key is a letter (PC)",
       "from": "us-english",
       "to": "arabic-pc",

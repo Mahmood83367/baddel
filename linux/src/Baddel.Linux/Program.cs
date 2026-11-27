@@ -26,6 +26,7 @@ internal static class Program
                     + "baddel --undo          undo the last correction\n"
                     + "baddel --quit          stop the running Baddel\n"
                     + "baddel --self-check    report what this session supports\n"
+                    + "baddel --check-updates [stable|preview]   look for a newer release (installs nothing)\n"
                     + "baddel --dump-layout <xkb layout> [variant]\n"
                     + "baddel --version");
                 return 0;
@@ -39,6 +40,8 @@ internal static class Program
                 return DumpLayout(args.ElementAtOrDefault(1) ?? "us", args.ElementAtOrDefault(2));
             case "--self-check":
                 return SelfCheck();
+            case "--check-updates":
+                return CheckUpdates(args.ElementAtOrDefault(1));
             case "--socket-path":
                 // Where the trigger socket would live, or a refusal. Used by the checks.
                 if (TriggerChannel.SocketPath(create: args.Contains("--create")) is { } socketPath)
@@ -69,6 +72,21 @@ internal static class Program
         !Session.IsWayland && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))
             ? XkbGroupSwitcher.QuerySession()
             : Array.Empty<XkbGroup>();
+
+    /// <summary>
+    /// Asks GitHub for the public release list and says whether a newer version
+    /// exists on the channel. Runs only when asked; downloads and installs nothing.
+    /// </summary>
+    private static int CheckUpdates(string? channelName)
+    {
+        var channel = UpdateCheck.ParseChannel(channelName) ?? UpdateChannel.Stable;
+        var result = UpdateChecker.CheckAsync(Version, channel).GetAwaiter().GetResult();
+        Console.WriteLine(result is null
+            ? "updateCheck=failed"
+            : $"channel={result.Channel} current={result.Current} latest={result.Latest ?? "none"} updateAvailable={result.UpdateAvailable} page={result.ReleasePage ?? "-"}");
+        Console.WriteLine($"automaticInstallationPossible={UpdateManifest.AutomaticInstallationPossible}");
+        return result is null ? 1 : 0;
+    }
 
     /// <summary>States what this session offers, so nothing has to be assumed.</summary>
     private static int SelfCheck()

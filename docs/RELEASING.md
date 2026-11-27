@@ -1,13 +1,34 @@
 # Releasing
 
-The version is the single line in [`VERSION`](../VERSION). Both platforms read
-it at build time.
+The version is the single line in [`VERSION`](../VERSION). Every platform reads
+it at build time, and package names and the release tag are derived from it.
+
+## Version rules
+
+- **Every published update gets a new, higher version.** A feature release
+  raises the minor version (0.1.0 → 0.2.0); a fix that ships on its own raises
+  the patch version (0.2.0 → 0.2.1).
+- **A published version is never rebuilt, re-uploaded or replaced.** If a
+  package has to change after publication, publish a new version.
+- The tag is `v<VERSION>` on the commit the packages were built from.
+
+`tools/check-version.sh` enforces this in two modes:
+
+| Mode | When | Rule |
+|---|---|---|
+| Ordinary (`tools/check-version.sh`) | every pull request and push — the `version` CI job | `VERSION` is a semantic version and is **not lower** than any published version. A version that is already published still passes, so documentation and other changes that publish nothing are not blocked; the output notes that it must be raised before the next release. |
+| Strict (`tools/check-version.sh --release`) | when releasing — run by hand before tagging, and by the `release-version` CI job on every `v*` tag | The tag `v<VERSION>` either does not exist yet and `VERSION` is **higher** than every published version, or it points at exactly this commit. New content under an existing version is refused. |
+
+Versions are ordered as semantic versions, including the pre-release part
+(`0.2.0-preview.2` < `0.2.0-preview.10` < `0.2.0` < `0.2.1` < `0.10.0`), so a
+preview cannot be followed by a lower-numbered one. The guard has its own tests
+in `tools/test-check-version.sh`, which CI runs.
 
 ## Signing status
 
-| | 0.1.0 packages | How to change it |
+| | Packages so far | How to change it |
 |---|---|---|
-| macOS | Ad-hoc signed, **not notarized** | Set `BADDEL_SIGN_IDENTITY` to a Developer ID Application identity and `BADDEL_NOTARY_PROFILE` to a `notarytool` keychain profile |
+| macOS | Ad-hoc signed, **not notarized** | Set `BADDEL_SIGN_IDENTITY` to a Developer ID Application identity and `BADDEL_NOTARY_PROFILE` to a `notarytool` keychain profile. Notarization needs a profile created once with `xcrun notarytool store-credentials`; CI has no signing secrets, so signed builds are made locally |
 | Windows | **Not code-signed** | Set `BADDEL_SIGN_THUMBPRINT` to a code-signing certificate thumbprint |
 
 Signing is opt-in so that a release build never depends on, or exposes, a
@@ -83,6 +104,18 @@ Record the outcome in [TESTING.md](TESTING.md).
 
 ## Publish
 
-Publishing is a manual step: tag the release commit on `main`, create the
-GitHub release, attach the two ZIPs and their `.sha256` files, and state the
-signing status from the table above in the release notes.
+Publishing is a manual step, from the release commit on `main` only:
+
+1. `tools/check-version.sh --release` passes on that commit. If it says the
+   version is already published, raise `VERSION` in a pull request first.
+2. Download the package artifacts of the CI run **for that exact commit**, and
+   verify each ZIP against its `.sha256` and its inner `SHA256SUMS.txt`.
+3. Create the release with tag `v<VERSION>` targeting that commit and attach
+   the packages and their `.sha256` files. `gh release create` refuses a tag
+   that already exists; never work around that.
+4. Mark it as a pre-release for a preview, so that it reaches the preview
+   update channel only.
+5. State the signing status from the table above in the release notes.
+
+Creating the release creates the tag, which starts a CI run on that commit
+with the strict `release-version` job. Check that it passed.
