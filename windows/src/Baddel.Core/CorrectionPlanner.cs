@@ -64,7 +64,19 @@ public sealed class CorrectionPlanner
         arabicToLatin = new LayoutConverter(pair.Arabic, pair.Latin);
     }
 
-    public PlanResult Plan(string text, CorrectionTarget target, Script? hint)
+    /// <param name="protectedRanges">
+    /// Ranges of <paramref name="text"/> that must come back unchanged. A token that
+    /// touches one is copied as it is and does not count as evidence for either script.
+    /// </param>
+    /// <param name="hintDecidesMixedText">
+    /// When the text has letters of both scripts, take the direction from
+    /// <paramref name="hint"/> instead of from whichever script has more letters. Used
+    /// for command lines and drafts, where correct text in one script (a command, a
+    /// pasted log) often outweighs the few words typed with the wrong layout.
+    /// </param>
+    public PlanResult Plan(
+        string text, CorrectionTarget target, Script? hint, IReadOnlyList<Utf16Range>? protectedRanges = null,
+        bool hintDecidesMixedText = false)
     {
         Utf16Range range;
         switch (target.Kind)
@@ -89,9 +101,12 @@ public sealed class CorrectionPlanner
         var tokens = Tokens(segment);
         if (tokens.Count == 0) return Rejection.NothingToConvert;
 
-        var counts = tokens.Select(t => evidence.Count(segment.AsSpan(t.Location, t.Length))).ToList();
+        var kept = tokens.Select(t => protectedRanges is not null && protectedRanges.Any(p =>
+            p.Length > 0 && p.Location < range.Location + t.End && range.Location + t.Location < p.End)).ToList();
+        var counts = tokens.Select((t, i) => kept[i] ? new EvidenceCounts() : evidence.Count(segment.AsSpan(t.Location, t.Length))).ToList();
         var total = counts.Aggregate(new EvidenceCounts(), (a, b) => a + b);
-        var source = total.DominantScript ?? hint;
+        var mixed = total.StrongLatin > 0 && total.StrongArabic > 0;
+        var source = hintDecidesMixedText && mixed ? hint ?? total.DominantScript : total.DominantScript ?? hint;
         if (source is null) return Rejection.AmbiguousDirection;
         var converter = source == Script.Latin ? latinToArabic : arabicToLatin;
 
@@ -102,8 +117,8 @@ public sealed class CorrectionPlanner
             var token = tokens[i];
             result.Append(segment, cursor, token.Location - cursor);
             var tokenText = segment.Substring(token.Location, token.Length);
-            // Text already in the other script is left untouched.
-            result.Append(counts[i].UniformScript == source.Value.Opposite() ? tokenText : converter.Convert(tokenText));
+            // Protected text and text already in the other script are left untouched.
+            result.Append(kept[i] || counts[i].UniformScript == source.Value.Opposite() ? tokenText : converter.Convert(tokenText));
             cursor = token.End;
         }
         result.Append(segment, cursor, segment.Length - cursor);

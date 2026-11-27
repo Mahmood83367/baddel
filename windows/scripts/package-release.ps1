@@ -6,7 +6,8 @@
     dist\Baddel-<version>-windows-x64.zip.sha256
 
   The ZIP holds one folder with Baddel.exe (self-contained, no .NET install
-  needed), LICENSE.txt, README.txt and SHA256SUMS.txt.
+  needed), the opt-in PowerShell integration (shell\baddel.ps1), LICENSE.txt,
+  README.txt and SHA256SUMS.txt.
 
 .PARAMETER Dotnet
   Path to dotnet.exe. Defaults to the one on PATH.
@@ -38,6 +39,9 @@ Remove-Item $zip, "$zip.sha256" -ErrorAction SilentlyContinue
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 Copy-Item (Join-Path $dist "publish\Baddel.exe") $stage
 Remove-Item (Join-Path $dist "publish") -Recurse -Force
+# Opt-in PowerShell integration; a user dot-sources it from $PROFILE (docs/TERMINAL.md).
+New-Item -ItemType Directory -Force (Join-Path $stage "shell") | Out-Null
+Copy-Item (Join-Path $root "shared\shell\baddel.ps1") (Join-Path $stage "shell\baddel.ps1")
 Copy-Item (Join-Path $root "LICENSE") (Join-Path $stage "LICENSE.txt")
 
 $signing = "not code-signed"
@@ -77,6 +81,18 @@ Use
   An Undo button appears next to the text for a few seconds.
   Right-click the icon for Settings and About.
 
+In a terminal  (opt-in)
+  PowerShell command line: add this line to your PowerShell profile (run
+  "notepad `$PROFILE"), with the folder you extracted:
+    . "C:\path\to\Baddel\shell\baddel.ps1"
+  Ctrl+T once fixes the selected text or the last word before the cursor,
+  twice quickly the whole command line. Ctrl+Z undoes. Nothing is run for you.
+  Claude Code composer: set the VISUAL environment variable for Claude Code to
+    C:\path\to\Baddel\Baddel.exe --fix-draft
+  and press Ctrl+G to fix the whole unsent draft; Ctrl+_ undoes. Nothing is
+  sent for you.
+  Baddel does not switch the keyboard layout in a terminal.
+
 Limits
   Baddel does not run elevated, so it cannot edit windows of programs that
   run as administrator. Password fields are always skipped.
@@ -96,7 +112,7 @@ function Write-Lf([string]$path, [string[]]$lines) {
   [IO.File]::WriteAllText($path, (($lines -join "`n") + "`n"), [Text.Encoding]::ASCII)
 }
 
-$sums = foreach ($file in "Baddel.exe", "LICENSE.txt", "README.txt") {
+$sums = foreach ($file in "Baddel.exe", "shell/baddel.ps1", "LICENSE.txt", "README.txt") {
   "{0}  {1}" -f (Get-FileHash (Join-Path $stage $file) -Algorithm SHA256).Hash.ToLower(), $file
 }
 Write-Lf (Join-Path $stage "SHA256SUMS.txt") $sums

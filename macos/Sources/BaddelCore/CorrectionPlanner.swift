@@ -69,7 +69,18 @@ public struct CorrectionPlanner: Sendable {
 
     /// - Parameter hint: the script of the currently active keyboard layout,
     ///   used only when the text itself does not decide the direction.
-    public func plan(text: String, target: CorrectionTarget, hint: Script?) -> Result<CorrectionPlan, Rejection> {
+    /// - Parameter protected: ranges of `text` that must come back unchanged.
+    ///   A token that touches one is copied as it is and does not count as
+    ///   evidence for either script.
+    /// - Parameter hintDecidesMixedText: when the text has letters of both
+    ///   scripts, take the direction from `hint` instead of from whichever
+    ///   script has more letters. Used for command lines and drafts, where
+    ///   correct text in one script (a command, a pasted log) often outweighs
+    ///   the few words typed with the wrong layout.
+    public func plan(
+        text: String, target: CorrectionTarget, hint: Script?, protected: [UTF16Range] = [],
+        hintDecidesMixedText: Bool = false
+    ) -> Result<CorrectionPlan, Rejection> {
         let units = Array(text.utf16)
         let range: UTF16Range
         switch target {
@@ -89,18 +100,23 @@ public struct CorrectionPlanner: Sendable {
         let tokens = Self.tokens(in: segment)
         guard !tokens.isEmpty else { return .failure(.nothingToConvert) }
 
-        let tokenCounts = tokens.map { evidence.count(segment[$0]) }
+        let kept = tokens.map { token in
+            protected.contains { $0.length > 0 && $0.location < token.upperBound && token.lowerBound < $0.end }
+        }
+        let tokenCounts = zip(tokens, kept).map { $1 ? ScriptEvidence.Counts() : evidence.count(segment[$0]) }
         let total = tokenCounts.reduce(ScriptEvidence.Counts(), +)
-        guard let source = total.dominantScript ?? hint else { return .failure(.ambiguousDirection) }
+        let mixed = total.strongLatin > 0 && total.strongArabic > 0
+        let decided = hintDecidesMixedText && mixed ? (hint ?? total.dominantScript) : (total.dominantScript ?? hint)
+        guard let source = decided else { return .failure(.ambiguousDirection) }
         let converter = source == .latin ? latinToArabic : arabicToLatin
 
         var result: [UInt16] = []
         result.reserveCapacity(segment.count)
         var cursor = segment.startIndex
-        for (token, counts) in zip(tokens, tokenCounts) {
+        for (index, (token, counts)) in zip(tokens, tokenCounts).enumerated() {
             result.append(contentsOf: segment[cursor..<token.lowerBound])
-            if counts.uniformScript == source.opposite {
-                // Text already in the other script is left untouched.
+            if kept[index] || counts.uniformScript == source.opposite {
+                // Protected text and text already in the other script are left untouched.
                 result.append(contentsOf: segment[token])
             } else {
                 result.append(contentsOf: converter.convert(Array(segment[token])))

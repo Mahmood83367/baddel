@@ -4,6 +4,13 @@ import Carbon.HIToolbox
 
 import BaddelMacKit
 
+// `Baddel --fix-text …` and `Baddel --fix-draft FILE` correct text for a shell
+// line editor or for Claude Code's external editor, then exit. See
+// `TextFixCommand` and `docs/TERMINAL.md`.
+if TextFixCommand.handles(CommandLine.arguments) {
+    exit(TextFixCommand.run(CommandLine.arguments))
+}
+
 // `Baddel --self-check` verifies the pieces that need no user interaction and
 // exits: layout data loads and the system accepts the configured shortcut.
 if CommandLine.arguments.contains("--self-check") {

@@ -14,6 +14,11 @@ internal static class Program
 
     private static int Main(string[] args)
     {
+        // `baddel --fix-text …` and `baddel --fix-draft FILE` correct text for a shell
+        // line editor or for Claude Code's external editor, then exit. They do not
+        // talk to a running Baddel and need no accessibility bus. See docs/TERMINAL.md.
+        if (TextFixCommand.Handles(args)) return FixText(args);
+
         switch (args.FirstOrDefault())
         {
             case "--version":
@@ -27,6 +32,8 @@ internal static class Program
                     + "baddel --quit          stop the running Baddel\n"
                     + "baddel --self-check    report what this session supports\n"
                     + "baddel --check-updates [stable|preview]   look for a newer release (installs nothing)\n"
+                    + "baddel --fix-text …    correct a shell command line (used by shell/baddel.bash)\n"
+                    + "baddel --fix-draft FILE   correct a Claude Code draft (used as its external editor)\n"
                     + "baddel --dump-layout <xkb layout> [variant]\n"
                     + "baddel --version");
                 return 0;
@@ -65,6 +72,29 @@ internal static class Program
             return 4;
         }
         return new Session(settings, pair, groups, latin, arabic).Run();
+    }
+
+    private static int FixText(string[] args)
+    {
+        var settings = LinuxSettings.Load();
+        var groups = SessionGroups();
+        var (latin, arabic) = settings.Resolve(groups);
+        using var input = Console.OpenStandardInput();
+        using var output = Console.OpenStandardOutput();
+        return TextFixCommand.Run(
+            args,
+            () => LinuxSettings.LoadPair(latin, arabic),
+            () =>
+            {
+                // The active XKB group, where an X11 session reports one.
+                if (groups.Count == 0) return null;
+                var display = X11.XOpenDisplay(null);
+                if (display == IntPtr.Zero) return null;
+                var script = new XkbGroupSwitcher(display, groups, latin, arabic).CurrentScript();
+                X11.XCloseDisplay(display);
+                return script;
+            },
+            input, output, Console.Error);
     }
 
     /// <summary>The session's XKB groups; only an X11 session reports them.</summary>

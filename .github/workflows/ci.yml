@@ -68,6 +68,12 @@ jobs:
           grep -q "Copyright (c) 2026 Mahmood" LICENSE
           codesign --verify --strict Baddel.app
           lipo -archs Baddel.app/Contents/MacOS/Baddel
+      # A separate zsh in its own pseudo-terminal, with a throwaway start-up
+      # file, driving the packaged app and the packaged script.
+      - name: zsh command line check of the packaged app
+        run: |
+          app=$(echo dist/check/Baddel-*-macos-universal/Baddel.app)
+          python3 tools/terminal-check.py zsh --bin "$app/Contents/MacOS/Baddel" --script "$app/Contents/Resources/shell/baddel.zsh"
       - uses: actions/upload-artifact@v4
         with:
           name: baddel-macos
@@ -133,6 +139,39 @@ jobs:
           }
           if (-not (Select-String -Path "$dir/LICENSE.txt" -Pattern 'Copyright \(c\) 2026 Mahmood' -Quiet)) { throw "license notice missing" }
           "PACKAGED_EXE=$dir/Baddel.exe" | Out-File $env:GITHUB_ENV -Append
+          "PACKAGED_SHELL_SCRIPT=$dir/shell/baddel.ps1" | Out-File $env:GITHUB_ENV -Append
+      # The command PSReadLine and Claude Code call, run the way the script runs
+      # it: redirected UTF-8 input and output. The interactive PSReadLine check
+      # needs a real console (tools/terminal-check.py pwsh, see docs/TESTING.md).
+      - name: Text-fix command of the packaged app
+        shell: pwsh
+        run: |
+          $null = [scriptblock]::Create((Get-Content $env:PACKAGED_SHELL_SCRIPT -Raw))
+          function Fix([string]$text, [string]$arguments) {
+            $info = New-Object System.Diagnostics.ProcessStartInfo
+            $info.FileName = $env:PACKAGED_EXE; $info.Arguments = $arguments
+            $info.UseShellExecute = $false; $info.RedirectStandardInput = $true; $info.RedirectStandardOutput = $true
+            $info.StandardOutputEncoding = New-Object System.Text.UTF8Encoding($false)
+            $process = [System.Diagnostics.Process]::Start($info)
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+            $process.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length); $process.StandardInput.Close()
+            $answer = $process.StandardOutput.ReadToEnd(); $process.WaitForExit()
+            "$($process.ExitCode)|$answer"
+          }
+          $cases = @(
+            @('echo ugd;l', '--fix-text --hint none --cursor 10', "0|ok 10`necho عليكم"),
+            @('hgsghl ugd;l', '--fix-text --mode line --hint none', "0|ok 12`nالسلام عليكم"),
+            @('   ', '--fix-text --hint none', "1|no noWord`n")
+          )
+          foreach ($case in $cases) {
+            $actual = Fix $case[0] $case[1]
+            if ($actual -cne $case[2]) { throw "text-fix mismatch for arguments: $($case[1])" }
+          }
+          $draft = Join-Path $env:RUNNER_TEMP "claude-prompt-check.md"
+          [IO.File]::WriteAllText($draft, "ugd;l [Image #1]")
+          $process = Start-Process $env:PACKAGED_EXE -ArgumentList "--fix-draft", "--hint", "none", "`"$draft`"" -Wait -PassThru
+          if ($process.ExitCode -ne 0 -or [IO.File]::ReadAllText($draft) -cne "عليكم [Image #1]") { throw "draft was not corrected" }
+          "text-fix command: ok"
       - uses: actions/upload-artifact@v4
         with:
           name: baddel-windows
@@ -203,6 +242,12 @@ jobs:
           sha256sum -c SHA256SUMS.txt
           grep -q "Copyright (c) 2026 Mahmood" LICENSE
           ./baddel --version
+      # A separate Bash in its own pseudo-terminal, with a throwaway start-up
+      # file, driving the packaged binary and the packaged script.
+      - name: Bash command line check of the packaged binary
+        run: |
+          dir=$(echo dist/check/Baddel-*-linux-x64-prototype)
+          python3 tools/terminal-check.py bash --bin "$dir/baddel" --script "$dir/shell/baddel.bash"
       # The smoke test runs the binary extracted from the archive that is uploaded.
       - name: X11 smoke test of the packaged binary
         run: |
