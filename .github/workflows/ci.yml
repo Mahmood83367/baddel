@@ -108,3 +108,53 @@ jobs:
           name: windows-desktop-check-results
           path: dist/desktop-checks.txt
           if-no-files-found: ignore
+
+  # Prototype. Not a required check. The session is X11 under Xvfb with a
+  # window manager; it is not a person's desktop and it is not Wayland.
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install session dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q xvfb xdotool openbox dbus-x11 at-spi2-core libatspi2.0-0 libatspi2.0-dev \
+            libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas
+      - name: Test core on Linux
+        run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
+      - name: Check AT-SPI constants against the installed header
+        run: python3 linux/scripts/check-atspi-constants.py
+      - name: Test Linux layer
+        run: dotnet test linux/tests/Baddel.Linux.Tests/Baddel.Linux.Tests.csproj
+      - name: Package (self-contained x64 prototype)
+        run: linux/scripts/package-release.sh
+      - name: Check package
+        run: |
+          cd dist
+          sha256sum -c Baddel-*-linux-x64-prototype.tar.gz.sha256
+          mkdir check && tar -xzf Baddel-*-linux-x64-prototype.tar.gz -C check
+          cd check/Baddel-*-linux-x64-prototype
+          sha256sum -c SHA256SUMS.txt
+          grep -q "Copyright (c) 2026 Mahmood" LICENSE
+          ./baddel --version
+      # The smoke test runs the binary extracted from the archive that is uploaded.
+      - name: X11 smoke test of the packaged binary
+        run: |
+          RESULTS_FILE="$PWD/dist/linux-x11-smoke.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
+            linux/scripts/x11-smoke.sh dist/check/Baddel-*-linux-x64-prototype/baddel
+      - uses: actions/upload-artifact@v4
+        with:
+          name: baddel-linux-prototype
+          path: |
+            dist/Baddel-*-linux-x64-prototype.tar.gz
+            dist/Baddel-*-linux-x64-prototype.tar.gz.sha256
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-x11-smoke-results
+          path: dist/linux-x11-smoke.txt
+          if-no-files-found: ignore

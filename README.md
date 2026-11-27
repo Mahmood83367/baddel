@@ -11,7 +11,7 @@ locally on your computer.
 |---|---|
 | macOS 13+ (Apple silicon and Intel) | Menu bar app |
 | Windows 10 / 11 (x64) | Notification-area app |
-| Linux | Planned — see [docs/LINUX.md](docs/LINUX.md) |
+| Linux (x64) | Not released. A prototype exists, tested only in an X11 CI session — see [linux/README.md](linux/README.md) |
 
 This first release is about correction only. The clipboard history described
 in [docs/CLIPBOARD_HISTORY.md](docs/CLIPBOARD_HISTORY.md) is **upcoming and not
@@ -157,6 +157,7 @@ Release packaging is described in [docs/RELEASING.md](docs/RELEASING.md).
 shared/     Layout data and test fixtures used by every platform
 macos/      Swift package: BaddelCore (pure logic), BaddelMacKit (system APIs), the app
 windows/    C#: Baddel.Core (pure logic), Baddel.Windows (system APIs), the app, check tool
+linux/      C# prototype on the same core: X11, AT-SPI, XKB
 tools/      Script that generates the macOS layout data from the system tables
 docs/       Rules, architecture, testing record, releasing, roadmap, designs
 ```
