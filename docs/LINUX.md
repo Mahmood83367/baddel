@@ -1,8 +1,24 @@
-# Linux desktop version — plan (not implemented)
+# Linux desktop version
 
-Baddel for Linux will be its own independently runnable app. It is planned as a
-separate pull request after the 0.1.0 release. This document fixes the approach
-and the constraints.
+**Status: prototype.** The X11 path described here is implemented in
+[`linux/`](../linux/README.md) and passes a smoke test in CI (Ubuntu 24.04, X11
+under Xvfb, GTK 3 text entry). It has not been run on a real desktop, and
+nothing has been run under Wayland. The sections below are the design; each
+says what exists today.
+
+| Piece | Today |
+|---|---|
+| Shared C# core and fixtures on Linux | Done; the core tests run on Linux in CI |
+| Layout tables from the system's XKB data, with manual variants | Done |
+| AT-SPI text access with guarded writes and undo | Done; tested against a GTK 3 entry only |
+| X11 shortcut (`XGrabKey`), single and double press | Done; tested in CI |
+| Desktop-bound shortcut (`baddel --trigger`) over a private socket | Done; tested in CI under X11 only |
+| XKB group switching by exact layout and variant | Done; tested in CI |
+| Undo window on X11 | Done; tested in CI |
+| Wayland GlobalShortcuts portal | Not implemented |
+| Layout switching on GNOME / KDE / IBus / Fcitx5 | Not implemented |
+| Positioned Undo on Wayland | Not implemented |
+| Real-desktop testing | Not done |
 
 ## Requirements
 
@@ -21,12 +37,13 @@ Two hard limits:
 
 ## Reuse
 
-- `windows/src/Baddel.Core` is plain .NET 8 with no Windows dependency. It will
-  move to a neutral location (for example `core/dotnet/Baddel.Core`) and be
-  referenced by both the Windows and the Linux app, with the shared fixtures
-  running on Linux in CI.
-- `shared/layouts` gains Linux layout data generated from the system's own XKB
-  definitions (`us`, `ara`, `ara(...)` variants) through `libxkbcommon`, never
+- `windows/src/Baddel.Core` is plain .NET 8 with no Windows dependency. The
+  Linux app references it where it is, and the shared fixtures run on Linux in
+  CI. Moving it to a neutral location (for example `core/dotnet/Baddel.Core`)
+  is a later tidy-up.
+- Linux layout tables are not committed data: the app reads them at start from
+  the system's own XKB definitions (`us`, `ara`, and their variants) through
+  `libxkbcommon`, so they always match what the keyboard types and are never
   copied from another platform's table.
 - The engine's three interfaces (`IEditableField`, `IFocusProvider`,
   `ILayoutSwitcher`) are the whole platform boundary, as on Windows.
@@ -63,7 +80,7 @@ that cannot be read and verified is refused.
 |---|---|---|
 | X11 | `XGrabKey` on the root window for the one configured combination | Standard, unprivileged; delivers only that combination. Auto-repeat is filtered so a held key is one press. |
 | Wayland, portal available | `org.freedesktop.portal.GlobalShortcuts` | The desktop shows its own dialog and the user approves and can rebind the shortcut. Activated/Deactivated signals give distinct presses. |
-| Wayland, no portal | An explicit desktop-bound shortcut | The user binds a key in their desktop's keyboard settings to `baddel --trigger`, which signals the running app over a session D-Bus name. |
+| Wayland, no portal | An explicit desktop-bound shortcut | The user binds a key in their desktop's keyboard settings to `baddel --trigger`, which signals the running app over a Unix socket in a private per-user directory. |
 
 The single/double decision stays in the shared `DoublePressDetector`; each
 mechanism only has to report distinct presses.

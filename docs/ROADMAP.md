@@ -25,10 +25,17 @@ references and an explicit pin that keeps a copy. Designed in
 
 ### Linux desktop version
 
-Its own app on the shared C# core, using AT-SPI for text and the standard X11
-and Wayland shortcut mechanisms. Plan and constraints in [LINUX.md](LINUX.md).
-It will be developed in its own pull request, and support will be claimed only
-for desktop environments it has actually been tested on.
+A prototype is in [`linux/`](../linux/README.md): X11 shortcut, AT-SPI text
+access, layout tables from the system's XKB data with manual variants, XKB
+group switching, an Undo window, and a private trigger socket for desktops
+where the shortcut is bound by the desktop. It passes a smoke test in an X11
+CI session and has not been run on a real desktop or under Wayland.
+
+Next, in order: run and fix it on real Ubuntu GNOME sessions (X11 and
+Wayland); the Wayland GlobalShortcuts portal; layout switching through each
+desktop's own interface; an Undo that can be positioned on Wayland; packaging
+beyond a tarball. Support will be claimed only for desktop environments it has
+actually been tested on. Design: [LINUX.md](LINUX.md).
 
 ### More keyboard layouts, with manual control
 

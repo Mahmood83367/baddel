@@ -117,6 +117,49 @@ so in its output. Its result for each run is in the job log and in the
 person's desktop: treat it as a regression check, not as proof of interactive
 behaviour.
 
+## Linux prototype checks
+
+Environment: **Ubuntu 24.04 on a GitHub-hosted runner; an X11 session under
+Xvfb with the openbox window manager; a GTK 3 text entry; English and Arabic
+configured as XKB groups.** The binary under test is the one extracted from
+the packaged `tar.gz`. Script: `linux/scripts/x11-smoke.sh`. This is the only
+Linux environment anything has been run in. It is a CI session, not a person's
+desktop, and it is not Wayland.
+
+| Scenario | Result |
+|---|---|
+| App starts with an X11 key grab | Passed |
+| One press fixes only the last word | Passed |
+| Two presses 120 ms apart fix the whole field once | Passed |
+| Exact selection only | Passed |
+| Character offsets after an emoji | Passed |
+| One / two `baddel --trigger` calls (desktop-bound shortcut path) | Passed |
+| Password entry: refused as secure, unchanged | Passed |
+| Read-only entry: refused as unsupported, unchanged | Passed |
+| Nothing before the caret: nothing changes | Passed |
+| Arabic typed as English: fixed, XKB group switches to English | Passed |
+| Clicking the Undo window restores text and Arabic group; the entry keeps focus | Passed |
+| English typed as Arabic: fixed, group switches to Arabic; `baddel --undo` restores both | Passed |
+| Undo refused after the text was edited | Passed |
+| `ara` and `ara(digits)` are read as separate tables | Passed |
+| Configured Arabic variant is loaded and used for conversion | Passed |
+| With two Arabic groups, switching selects the group with the exact variant | Passed |
+| Configured variant not among the session's groups: text fixed, layout left alone | Passed |
+| Variant not configured: the session's variant is used | Passed |
+| Configured Latin variant is loaded | Passed |
+| Socket is in the private runtime directory when there is one | Passed |
+| Without it, the per-user fallback is created as a real directory with mode 700, and the trigger works through it | Passed |
+| A non-private runtime directory is not used | Passed |
+| World-writable fallback directory: refused, app does not start a channel, no socket created | Passed |
+| Symbolic link at the fallback path: refused, client refuses to send, nothing created behind it | Passed |
+
+The result of each run is in the `linux-x11-smoke-results` artifact of the
+`linux` CI job.
+
+Not verified on Linux: any real desktop session (GNOME, KDE Plasma or others);
+any Wayland session, including the trigger path there; Qt, browsers, Electron,
+LibreOffice, terminals and multi-line text views; other distributions; ARM.
+
 ## Not verified
 
 - **Other applications**, on both platforms: browsers, Electron apps, Microsoft
