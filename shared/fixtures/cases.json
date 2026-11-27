@@ -1,0 +1,962 @@
+{
+  "conversions": [
+    {
+      "name": "greeting punctuation key is a letter (PC)",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "ugd;l",
+      "output": "عليكم"
+    },
+    {
+      "name": "greeting punctuation key is a letter (Mac)",
+      "from": "us-english",
+      "to": "arabic-mac",
+      "input": "ugd;l",
+      "output": "عليكم"
+    },
+    {
+      "name": "phrase keeps spaces",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "hgsghl ugd;l",
+      "output": "السلام عليكم"
+    },
+    {
+      "name": "PC lam-alef key",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "b",
+      "output": "لا"
+    },
+    {
+      "name": "PC lam-alef maps back to one key",
+      "from": "arabic-pc",
+      "to": "us-english",
+      "input": "لا",
+      "output": "b"
+    },
+    {
+      "name": "Mac has no lam-alef key",
+      "from": "arabic-mac",
+      "to": "us-english",
+      "input": "لا",
+      "output": "gh"
+    },
+    {
+      "name": "PC shifted lam-alef-hamza",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "T",
+      "output": "لإ"
+    },
+    {
+      "name": "PC shifted lam-alef-hamza back",
+      "from": "arabic-pc",
+      "to": "us-english",
+      "input": "لإ",
+      "output": "T"
+    },
+    {
+      "name": "marhaba on PC",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "lvpfh",
+      "output": "مرحبا"
+    },
+    {
+      "name": "marhaba on Mac",
+      "from": "us-english",
+      "to": "arabic-mac",
+      "input": "lnpfh",
+      "output": "مرحبا"
+    },
+    {
+      "name": "hello typed in Arabic-PC",
+      "from": "arabic-pc",
+      "to": "us-english",
+      "input": "اثممخ",
+      "output": "hello"
+    },
+    {
+      "name": "capital via shift on PC",
+      "from": "arabic-pc",
+      "to": "us-english",
+      "input": "أثممخ",
+      "output": "Hello"
+    },
+    {
+      "name": "capital via shift on Mac",
+      "from": "arabic-mac",
+      "to": "us-english",
+      "input": "آثممخ",
+      "output": "Hello"
+    },
+    {
+      "name": "capital to PC",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "Hello",
+      "output": "أثممخ"
+    },
+    {
+      "name": "question mark",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "?",
+      "output": "؟"
+    },
+    {
+      "name": "comma is waw on PC",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": ",",
+      "output": "و"
+    },
+    {
+      "name": "comma is Arabic comma on Mac",
+      "from": "us-english",
+      "to": "arabic-mac",
+      "input": ",",
+      "output": "،"
+    },
+    {
+      "name": "m is waw on Mac",
+      "from": "us-english",
+      "to": "arabic-mac",
+      "input": "m",
+      "output": "و"
+    },
+    {
+      "name": "empty shift level falls back to base (Mac)",
+      "from": "us-english",
+      "to": "arabic-mac",
+      "input": "Fhf",
+      "output": "باب"
+    },
+    {
+      "name": "digits become Arabic-Indic",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "2024",
+      "output": "٢٠٢٤"
+    },
+    {
+      "name": "Arabic-Indic digits back",
+      "from": "arabic-mac",
+      "to": "us-english",
+      "input": "٢٠٢٤",
+      "output": "2024"
+    },
+    {
+      "name": "emoji and unknown characters pass through",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": "ugd;l 😀 é",
+      "output": "عليكم 😀 é"
+    },
+    {
+      "name": "whitespace is preserved",
+      "from": "us-english",
+      "to": "arabic-pc",
+      "input": " ugd;l\t\n",
+      "output": " عليكم\t\n"
+    },
+    {
+      "name": "Arabic question back",
+      "from": "arabic-pc",
+      "to": "us-english",
+      "input": "؟",
+      "output": "?"
+    }
+  ],
+  "plans": [
+    {
+      "name": "last word, caret at end",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l",
+      "target": {
+        "type": "lastWord",
+        "caret": 5
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 5,
+        "replacement": "عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "last word skips trailing whitespace",
+      "arabicLayout": "arabic-pc",
+      "text": "hgsghl ugd;l  ",
+      "target": {
+        "type": "lastWord",
+        "caret": 14
+      },
+      "hint": null,
+      "expect": {
+        "location": 7,
+        "length": 5,
+        "replacement": "عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "last word skips trailing tab",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l\t",
+      "target": {
+        "type": "lastWord",
+        "caret": 6
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 5,
+        "replacement": "عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "last word after correct Arabic (RTL context)",
+      "arabicLayout": "arabic-pc",
+      "text": "مرحبا ugd;l",
+      "target": {
+        "type": "lastWord",
+        "caret": 11
+      },
+      "hint": null,
+      "expect": {
+        "location": 6,
+        "length": 5,
+        "replacement": "عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "last word before a caret in the middle",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l hgsghl",
+      "target": {
+        "type": "lastWord",
+        "caret": 5
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 5,
+        "replacement": "عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "caret inside a word takes the part before it",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l",
+      "target": {
+        "type": "lastWord",
+        "caret": 3
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 3,
+        "replacement": "علي",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "Arabic typed instead of English",
+      "arabicLayout": "arabic-pc",
+      "text": "اثممخ",
+      "target": {
+        "type": "lastWord",
+        "caret": 5
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 5,
+        "replacement": "hello",
+        "sourceScript": "arabic"
+      }
+    },
+    {
+      "name": "Mac Arabic layout",
+      "arabicLayout": "arabic-mac",
+      "text": "lnpfh",
+      "target": {
+        "type": "lastWord",
+        "caret": 5
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 5,
+        "replacement": "مرحبا",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "UTF-16 offsets after an emoji",
+      "arabicLayout": "arabic-pc",
+      "text": "😀 ugd;l",
+      "target": {
+        "type": "lastWord",
+        "caret": 8
+      },
+      "hint": null,
+      "expect": {
+        "location": 3,
+        "length": 5,
+        "replacement": "عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "mixed token passes other-script letters through",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;lمر",
+      "target": {
+        "type": "lastWord",
+        "caret": 7
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 7,
+        "replacement": "عليكممر",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "only whitespace before caret",
+      "arabicLayout": "arabic-pc",
+      "text": "   ",
+      "target": {
+        "type": "lastWord",
+        "caret": 3
+      },
+      "hint": null,
+      "expect": {
+        "reject": "noWord"
+      }
+    },
+    {
+      "name": "empty field, single press",
+      "arabicLayout": "arabic-pc",
+      "text": "",
+      "target": {
+        "type": "lastWord",
+        "caret": 0
+      },
+      "hint": null,
+      "expect": {
+        "reject": "noWord"
+      }
+    },
+    {
+      "name": "caret at start of a new line",
+      "arabicLayout": "arabic-pc",
+      "text": "abc\n",
+      "target": {
+        "type": "lastWord",
+        "caret": 4
+      },
+      "hint": null,
+      "expect": {
+        "reject": "noWord"
+      }
+    },
+    {
+      "name": "caret past the end",
+      "arabicLayout": "arabic-pc",
+      "text": "abc",
+      "target": {
+        "type": "lastWord",
+        "caret": 9
+      },
+      "hint": null,
+      "expect": {
+        "reject": "invalidRange"
+      }
+    },
+    {
+      "name": "caret splitting a surrogate pair",
+      "arabicLayout": "arabic-pc",
+      "text": "😀ab",
+      "target": {
+        "type": "lastWord",
+        "caret": 1
+      },
+      "hint": null,
+      "expect": {
+        "reject": "invalidRange"
+      }
+    },
+    {
+      "name": "exact selection only",
+      "arabicLayout": "arabic-pc",
+      "text": "say ugd;l now",
+      "target": {
+        "type": "selection",
+        "location": 4,
+        "length": 5
+      },
+      "hint": null,
+      "expect": {
+        "location": 4,
+        "length": 5,
+        "replacement": "عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "selection of two words keeps inner space",
+      "arabicLayout": "arabic-pc",
+      "text": "x hgsghl ugd;l x",
+      "target": {
+        "type": "selection",
+        "location": 2,
+        "length": 12
+      },
+      "hint": null,
+      "expect": {
+        "location": 2,
+        "length": 12,
+        "replacement": "السلام عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "selection with trailing space keeps it",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l ",
+      "target": {
+        "type": "selection",
+        "location": 0,
+        "length": 6
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 6,
+        "replacement": "عليكم ",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "selection of a letter-producing punctuation key",
+      "arabicLayout": "arabic-pc",
+      "text": ";",
+      "target": {
+        "type": "selection",
+        "location": 0,
+        "length": 1
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 1,
+        "replacement": "ك",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "neutral selection uses the active layout hint",
+      "arabicLayout": "arabic-pc",
+      "text": ".",
+      "target": {
+        "type": "selection",
+        "location": 0,
+        "length": 1
+      },
+      "hint": "latin",
+      "expect": {
+        "location": 0,
+        "length": 1,
+        "replacement": "ز",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "neutral selection without hint is refused",
+      "arabicLayout": "arabic-pc",
+      "text": ".",
+      "target": {
+        "type": "selection",
+        "location": 0,
+        "length": 1
+      },
+      "hint": null,
+      "expect": {
+        "reject": "ambiguousDirection"
+      }
+    },
+    {
+      "name": "selection splitting a surrogate pair",
+      "arabicLayout": "arabic-pc",
+      "text": "😀ab",
+      "target": {
+        "type": "selection",
+        "location": 1,
+        "length": 2
+      },
+      "hint": null,
+      "expect": {
+        "reject": "invalidRange"
+      }
+    },
+    {
+      "name": "selection out of bounds",
+      "arabicLayout": "arabic-pc",
+      "text": "abc",
+      "target": {
+        "type": "selection",
+        "location": 2,
+        "length": 5
+      },
+      "hint": null,
+      "expect": {
+        "reject": "invalidRange"
+      }
+    },
+    {
+      "name": "nothing convertible",
+      "arabicLayout": "arabic-pc",
+      "text": "😀",
+      "target": {
+        "type": "lastWord",
+        "caret": 2
+      },
+      "hint": "latin",
+      "expect": {
+        "reject": "nothingToConvert"
+      }
+    },
+    {
+      "name": "nothing convertible and no hint",
+      "arabicLayout": "arabic-pc",
+      "text": "😀",
+      "target": {
+        "type": "lastWord",
+        "caret": 2
+      },
+      "hint": null,
+      "expect": {
+        "reject": "ambiguousDirection"
+      }
+    },
+    {
+      "name": "whole field, single script",
+      "arabicLayout": "arabic-pc",
+      "text": "hgsghl ugd;l",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 12,
+        "replacement": "السلام عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "whole field keeps newlines and tabs",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l\n\thgsghl",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 13,
+        "replacement": "عليكم\n\tالسلام",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "whole field, Latin dominant: Arabic tokens untouched",
+      "arabicLayout": "arabic-pc",
+      "text": "مرحبا hgsghl ugd;l",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 18,
+        "replacement": "مرحبا السلام عليكم",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "whole field, Arabic dominant: Latin tokens untouched",
+      "arabicLayout": "arabic-pc",
+      "text": "اثممخ صخقمي ok",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 14,
+        "replacement": "hello world ok",
+        "sourceScript": "arabic"
+      }
+    },
+    {
+      "name": "whole field, neutral token follows dominant direction",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l , hgsghl",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 14,
+        "replacement": "عليكم و السلام",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "whole field, minority token keeps its punctuation",
+      "arabicLayout": "arabic-pc",
+      "text": "hgsghl ugd;l (مرحبا)",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 20,
+        "replacement": "السلام عليكم (مرحبا)",
+        "sourceScript": "latin"
+      }
+    },
+    {
+      "name": "whole field, letters outweigh digits",
+      "arabicLayout": "arabic-pc",
+      "text": "اثممخ 01234567890",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "location": 0,
+        "length": 17,
+        "replacement": "hello 01234567890",
+        "sourceScript": "arabic"
+      }
+    },
+    {
+      "name": "whole field tie uses the hint",
+      "arabicLayout": "arabic-pc",
+      "text": "ab اب",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": "arabic",
+      "expect": {
+        "location": 0,
+        "length": 5,
+        "replacement": "ab hf",
+        "sourceScript": "arabic"
+      }
+    },
+    {
+      "name": "whole field tie without hint is refused",
+      "arabicLayout": "arabic-pc",
+      "text": "ab اب",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "reject": "ambiguousDirection"
+      }
+    },
+    {
+      "name": "whole field empty",
+      "arabicLayout": "arabic-pc",
+      "text": "",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "reject": "emptyField"
+      }
+    },
+    {
+      "name": "whole field whitespace only",
+      "arabicLayout": "arabic-pc",
+      "text": "  \n",
+      "target": {
+        "type": "wholeField"
+      },
+      "hint": null,
+      "expect": {
+        "reject": "nothingToConvert"
+      }
+    }
+  ],
+  "doublePress": [
+    {
+      "name": "single press",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "timeout"
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "single"
+      ]
+    },
+    {
+      "name": "double press",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "press",
+          "t": 150
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "staleTimeout"
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "double",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "name": "double press at the window edge",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "press",
+          "t": 300
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "double"
+      ]
+    },
+    {
+      "name": "held key repeats are ignored",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "repeat",
+          "t": 100
+        },
+        {
+          "type": "repeat",
+          "t": 200
+        },
+        {
+          "type": "timeout"
+        },
+        {
+          "type": "repeat",
+          "t": 400
+        },
+        {
+          "type": "release"
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "none",
+        "single",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "name": "second press without release is ignored",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "press",
+          "t": 100
+        },
+        {
+          "type": "timeout"
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "single"
+      ]
+    },
+    {
+      "name": "late second press runs the pending single",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "press",
+          "t": 400
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "timeout"
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "singleThenArmed",
+        "none",
+        "single"
+      ]
+    },
+    {
+      "name": "third press starts a new cycle",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "press",
+          "t": 100
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "press",
+          "t": 200
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "timeout"
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "double",
+        "none",
+        "armed",
+        "none",
+        "single"
+      ]
+    },
+    {
+      "name": "stale timer after a double does nothing",
+      "windowMs": 300,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "press",
+          "t": 100
+        },
+        {
+          "type": "staleTimeout"
+        },
+        {
+          "type": "timeout"
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "double",
+        "none",
+        "none"
+      ]
+    },
+    {
+      "name": "custom window",
+      "windowMs": 200,
+      "events": [
+        {
+          "type": "press",
+          "t": 0
+        },
+        {
+          "type": "release"
+        },
+        {
+          "type": "press",
+          "t": 250
+        }
+      ],
+      "expect": [
+        "armed",
+        "none",
+        "singleThenArmed"
+      ]
+    }
+  ]
+}
