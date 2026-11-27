@@ -10,7 +10,8 @@ if CommandLine.arguments.contains("--self-check") {
     print("layouts=\(layouts.joined(separator: ","))")
     print("shortcut=\(Settings.shared.shortcut.displayString) registered=\(registered)")
     print("accessibilityTrusted=\(AccessibilityPermission.isGranted)")
-    exit(layouts.count == 3 && registered ? 0 : 1)
+    print("version=\(AppInfo.version) \(AppInfo.copyright)")
+    exit(layouts.count >= 3 && registered ? 0 : 1)
 }
 
 let application = NSApplication.shared

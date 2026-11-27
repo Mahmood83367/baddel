@@ -70,5 +70,19 @@ run_case "two presses 120 ms apart fix the whole field once" 'hgsghl ugd;l' 'ا�
 run_case "one press, then a mouse click on Undo restores the text" 'hgsghl ugd;l' 'hgsghl عليكم' 12 1 0 7,5
 run_case "Arabic typed instead of English: layout switches, Undo switches it back" 'اثممخ' 'hello' 5 1 0 0,5
 
+# Manual Arabic layout selection: restart the app with the Arabic layout
+# setting overridden to Arabic - PC for this run only (your saved settings are
+# not changed). `v` is `ر` on Arabic - PC and `د` on the macOS Arabic layout.
+kill "$BADDEL" 2>/dev/null; wait "$BADDEL" 2>/dev/null
+.build/debug/Baddel -arabicLayoutID arabic-pc &
+BADDEL=$!
+sleep 1
+run_case "Arabic layout set to Arabic - PC in Settings" 'lvpfh' 'مرحبا' 5 1 0
+kill "$BADDEL" 2>/dev/null; wait "$BADDEL" 2>/dev/null
+.build/debug/Baddel -arabicLayoutID arabic-mac &
+BADDEL=$!
+sleep 1
+run_case "Arabic layout set to Arabic (macOS) in Settings" 'lvpfh' 'مدحبا' 5 1 0
+
 echo
 if [ "$failures" -eq 0 ]; then echo "All hot key checks passed."; else echo "$failures check(s) failed."; exit 1; fi
