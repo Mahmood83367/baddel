@@ -237,7 +237,7 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q xvfb xdotool openbox dbus-x11 at-spi2-core libatspi2.0-0 libatspi2.0-dev \
             libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas \
-            xterm gnome-terminal x11-utils
+            xterm gnome-terminal xfce4-terminal x11-utils
       - name: Test core on Linux
         run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
       - name: Check AT-SPI constants against the installed header

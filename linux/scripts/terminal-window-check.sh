@@ -7,7 +7,9 @@
 #
 #   linux/scripts/terminal-window-check.sh <path to the unpacked package folder> [terminal ...]
 #
-# Terminals default to: xterm gnome-terminal. Needs an X11 session with a session
+# Terminals default to: xterm xfce4-terminal gnome-terminal. xterm is started with
+# metaSendsEscape, which it needs to send Alt combinations as Escape sequences;
+# what stock xterm does instead is recorded as a note. Needs an X11 session with a session
 # D-Bus, xdotool, openbox and the terminals. Without a session, run:
 #   dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" linux/scripts/terminal-window-check.sh <folder>
 # Everything runs with throwaway settings and start-up files; only fixture text
@@ -16,7 +18,7 @@ set -u
 PACKAGE=$(realpath "$1"); shift
 BADDEL="$PACKAGE/baddel"
 SCRIPT="$PACKAGE/shell/baddel.bash"
-[ $# -gt 0 ] || set -- xterm gnome-terminal
+[ $# -gt 0 ] || set -- xterm xfce4-terminal gnome-terminal
 WORK=$(mktemp -d)
 RESULTS="${RESULTS_FILE:-$WORK/results.txt}"
 failures=0
@@ -67,16 +69,40 @@ shortcut() {  # count
   sleep 1.2
 }
 layout() { "$BADDEL" --xkb-group "$1" >/dev/null; sleep 0.3; }   # 0 = us, 1 = ara
+# Presses physical keys by key code, so the active layout decides what is typed,
+# exactly as on a keyboard. (xdotool type would pick the layout itself.)
+press_keys() {
+  local text=$1 i char codes=""
+  for ((i = 0; i < ${#text}; i++)); do
+    char=${text:i:1}
+    case "$char" in
+      q) codes+=" 24" ;; w) codes+=" 25" ;; e) codes+=" 26" ;; r) codes+=" 27" ;; t) codes+=" 28" ;; y) codes+=" 29" ;;
+      u) codes+=" 30" ;; i) codes+=" 31" ;; o) codes+=" 32" ;; p) codes+=" 33" ;; a) codes+=" 38" ;; s) codes+=" 39" ;;
+      d) codes+=" 40" ;; f) codes+=" 41" ;; g) codes+=" 42" ;; h) codes+=" 43" ;; j) codes+=" 44" ;; k) codes+=" 45" ;;
+      l) codes+=" 46" ;; ';') codes+=" 47" ;; z) codes+=" 52" ;; x) codes+=" 53" ;; c) codes+=" 54" ;; v) codes+=" 55" ;;
+      b) codes+=" 56" ;; n) codes+=" 57" ;; m) codes+=" 58" ;; ' ') codes+=" 65" ;;
+    esac
+  done
+  # shellcheck disable=SC2086
+  xdotool key --delay 25 $codes
+  sleep 0.3
+}
 
 say "session display=${DISPLAY:-none} xkb=$(setxkbmap -query | awk '/layout/{print $2}')"
 say "$("$BADDEL" --terminal-key status | head -1)"
 
 for TERMINAL in "$@"; do
-  command -v "$TERMINAL" >/dev/null || { say "SKIP $TERMINAL is not installed"; continue; }
+  command -v "${TERMINAL%-stock}" >/dev/null || { say "SKIP $TERMINAL is not installed"; continue; }
   rm -f "$WORK/shell-ready" "$WORK/prompts" "$BADDEL_SETTINGS_DIR/terminal-integration"
   case "$TERMINAL" in
-    gnome-terminal) gnome-terminal --wait -- bash --noprofile --rcfile "$WORK/rc" -i >/dev/null 2>&1 & ;;
-    *) "$TERMINAL" -e bash --noprofile --rcfile "$WORK/rc" -i >/dev/null 2>&1 & ;;
+    gnome-terminal)
+      # Its server is normally started by the desktop session; start one for this check.
+      SERVER=$(ls /usr/libexec/gnome-terminal-server /usr/lib/gnome-terminal/gnome-terminal-server 2>/dev/null | head -1)
+      [ -n "$SERVER" ] && { "$SERVER" --app-id org.baddel.TerminalCheck >/dev/null 2>&1 & sleep 1.5; }
+      gnome-terminal --app-id org.baddel.TerminalCheck -- bash --noprofile --rcfile "$WORK/rc" -i >/dev/null 2>&1 & ;;
+    xterm) xterm -xrm 'XTerm*metaSendsEscape: true' -e bash --noprofile --rcfile "$WORK/rc" -i >/dev/null 2>&1 & ;;
+    xterm-stock) xterm -e bash --noprofile --rcfile "$WORK/rc" -i >/dev/null 2>&1 & ;;
+    *) "$TERMINAL" -e "bash --noprofile --rcfile $WORK/rc -i" >/dev/null 2>&1 & ;;
   esac
   TERMINAL_PID=$!
   for _ in $(seq 1 100); do [ -f "$WORK/shell-ready" ] && break; sleep 0.1; done
@@ -107,11 +133,11 @@ for TERMINAL in "$@"; do
 
   # The same physical keys with the Arabic layout active: what a user types
   # when the layout is wrong. The shortcut itself is pressed under that layout.
-  layout 1; clear_line; xdotool type --delay 20 'git status'; sleep 0.3
+  layout 1; clear_line; press_keys 'git status'
   check "$TERMINAL: the Arabic layout really typed Arabic" "$(buffer)" 'لهف سفشفعس'
   shortcut 1
   check "$TERMINAL: Arabic layout, one press corrects the last word" "$(buffer)" 'لهف status'
-  clear_line; xdotool type --delay 20 'git status'; shortcut 2
+  clear_line; press_keys 'git status'; shortcut 2
   check "$TERMINAL: Arabic layout, two presses correct the whole line" "$(buffer)" 'git status'
   layout 0; clear_line
   check "$TERMINAL: no command line was run" "$(grep -c p "$WORK/prompts")" 1
@@ -119,6 +145,19 @@ for TERMINAL in "$@"; do
   kill "$TERMINAL_PID" 2>/dev/null; pkill -f "rcfile $WORK/rc" 2>/dev/null; TERMINAL_PID=""
   sleep 0.5
 done
+
+# Stock xterm, for the record: it does not send Alt as an Escape prefix.
+if command -v xterm >/dev/null; then
+  rm -f "$WORK/shell-ready"
+  xterm -e bash --noprofile --rcfile "$WORK/rc" -i >/dev/null 2>&1 &
+  TERMINAL_PID=$!
+  for _ in $(seq 1 100); do [ -f "$WORK/shell-ready" ] && break; sleep 0.1; done
+  sleep 1
+  start_app; sleep 0.5
+  layout 0; clear_line; xdotool type --delay 20 'ugd;l'; shortcut 1
+  say "NOTE xterm with stock settings: corrected=$([ "$(buffer)" = 'عليكم' ] && echo yes || echo 'no (it needs metaSendsEscape for Ctrl+Alt+Space to arrive as Escape, NUL)')"
+  clear_line; stop_app; kill "$TERMINAL_PID" 2>/dev/null; pkill -f "rcfile $WORK/rc" 2>/dev/null; TERMINAL_PID=""
+fi
 
 say "RESULT $([ "$failures" -eq 0 ] && echo pass || echo "fail ($failures)")"
 exit "$failures"
