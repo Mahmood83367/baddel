@@ -17,6 +17,39 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // `Baddel.exe --fix-text …` and `Baddel.exe --fix-draft FILE` correct text for
+        // PSReadLine or for Claude Code's external editor, then exit. They start no
+        // tray icon and do not touch the running instance. See docs/TERMINAL.md.
+        if (TextFixCommand.Handles(args))
+        {
+            using var input = Console.OpenStandardInput();
+            using var output = Console.OpenStandardOutput();
+            return TextFixCommand.Run(
+                args,
+                () =>
+                {
+                    var settings = AppSettings.Load();
+                    return EmbeddedLayouts.Pair(
+                        EmbeddedLayouts.LoadWithCustom(AppSettings.CustomLayoutsDirectory), settings.ArabicLayout, settings.EnglishLayout);
+                },
+                () => new InputLanguageSwitcher().CurrentScript(),
+                input, output, Console.Error);
+        }
+
+        // `Baddel.exe --terminal-key pwsh|claude|status` says how the shortcut in
+        // Settings reaches a terminal; the PowerShell integration asks once on load.
+        var terminalIndex = Array.IndexOf(args, "--terminal-key");
+        if (terminalIndex >= 0)
+        {
+            var current = AppSettings.Load();
+            using var output = new System.IO.StreamWriter(Console.OpenStandardOutput(), new System.Text.UTF8Encoding(false));
+            var code = TerminalSharing.RunCommand(
+                terminalIndex + 1 < args.Length ? args[terminalIndex + 1] : null, current.HotKey.ToString(), TerminalPlatform.Windows,
+                current.TerminalSharing, AppSettings.Directory, "PowerShell", output, Console.Error);
+            output.Flush();
+            return code;
+        }
+
         // `Baddel.exe --self-check` verifies what needs no user interaction and exits:
         // the layout data loads and Windows accepts the configured shortcut.
         if (Array.IndexOf(args, "--self-check") >= 0)

@@ -79,6 +79,18 @@ Use
     once   fixes the selected text, or the last word before the caret
     twice  fixes the whole focused field
   An Undo button appears next to the text for a few seconds.
+
+In a terminal  (opt-in)
+  zsh command line: add this line to ~/.zshrc, then open a new terminal:
+    source /Applications/Baddel.app/Contents/Resources/shell/baddel.zsh
+  The same shortcut then works on the command line: once fixes the selected
+  text or the last word before the cursor, twice quickly the whole line.
+  Ctrl+_ undoes. Nothing is run for you.
+  Claude Code message box: set VISUAL for Claude Code to
+    /Applications/Baddel.app/Contents/MacOS/Baddel --fix-draft
+  and press Ctrl+G to fix the whole unsent draft; Ctrl+_ undoes. Nothing is
+  sent for you.
+  Baddel does not switch the keyboard layout in a terminal.
   Settings and About are in the keyboard icon in the menu bar.
 
 Verify this download

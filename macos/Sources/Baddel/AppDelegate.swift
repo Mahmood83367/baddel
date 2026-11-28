@@ -46,6 +46,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hotKeys.onPress = { [weak coordinator] isRepeat in coordinator?.hotKeyPressed(isRepeat: isRepeat) }
         hotKeys.onRelease = { [weak coordinator] in coordinator?.hotKeyReleased() }
         hotKeys.register(settings.shortcut)
+        // The shortcut is shared with terminal apps by letting go of it while
+        // one of them is in front. Only the frontmost app's identity is used.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { [weak self] _ in self?.shareShortcutWithFrontApp() }
+        shareShortcutWithFrontApp()
         clipboardHistory.setRecording(ClipboardWindowController.recordsHistory)
         clipboardHotKey.onPress = { [weak self] isRepeat in if !isRepeat { self?.showClipboard() } }
         clipboardHotKey.register(clipboardShortcut)
@@ -95,9 +101,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menuNeedsUpdate(menu)
     }
 
+    /// Releases the shortcut while a terminal app is frontmost and pass-through
+    /// is active, and holds it otherwise.
+    private func shareShortcutWithFrontApp() {
+        guard !recordingShortcut else { return }
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let pass = TerminalSharing.isActive(settings: settings) && TerminalSharing.isTerminal(bundleID: front, settings: settings)
+        if pass {
+            if hotKeys.isRegistered { hotKeys.unregister() }
+            passedToTerminal = true
+        } else {
+            if passedToTerminal || !hotKeys.isRegistered { hotKeys.register(settings.shortcut) }
+            passedToTerminal = false
+        }
+    }
+
+    private var passedToTerminal = false
+    private var recordingShortcut = false
+
     func menuNeedsUpdate(_ menu: NSMenu) {
         shortcutItem.title = hotKeys.isRegistered
             ? "Fix text: \(settings.shortcut.displayString)  (press twice for the whole field)"
+            : passedToTerminal
+            ? "Fix text: \(settings.shortcut.displayString)  (handled by the terminal in front)"
             : "Shortcut \(settings.shortcut.displayString) is unavailable — choose another in Settings"
         accessItem.title = AccessibilityPermission.isGranted
             ? "Accessibility access: granted"
@@ -117,11 +143,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         preferencesWindow.suspendHotKey = { [weak self] suspended in
             guard let self else { return }
             // While recording, the current shortcut must reach the recorder.
+            self.recordingShortcut = suspended
             if suspended { self.hotKeys.unregister() } else if !self.hotKeys.isRegistered {
                 self.hotKeys.register(self.settings.shortcut)
             }
         }
-        preferencesWindow.onSettingsChanged = { [weak self] in self?.coordinator?.settingsChanged() }
+        preferencesWindow.onSettingsChanged = { [weak self] in
+            self?.coordinator?.settingsChanged()
+            self?.shareShortcutWithFrontApp()
+        }
         preferencesWindow.present()
     }
 

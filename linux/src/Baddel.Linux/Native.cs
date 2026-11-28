@@ -42,6 +42,17 @@ internal static class X11
     [DllImport(Lib)] internal static extern byte XKeysymToKeycode(IntPtr display, IntPtr keysym);
     [DllImport(Lib)] internal static extern int XGrabKey(IntPtr display, int keycode, uint modifiers, IntPtr window, int ownerEvents, int pointerMode, int keyboardMode);
     [DllImport(Lib)] internal static extern int XUngrabKey(IntPtr display, int keycode, uint modifiers, IntPtr window);
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct XClassHint
+    {
+        public IntPtr Name;
+        public IntPtr Class;
+    }
+
+    [DllImport(Lib)] internal static extern int XGetInputFocus(IntPtr display, out IntPtr focus, out int revertTo);
+    [DllImport(Lib)] internal static extern int XGetClassHint(IntPtr display, IntPtr window, out XClassHint hint);
+    [DllImport(Lib)] internal static extern int XQueryTree(IntPtr display, IntPtr window, out IntPtr root, out IntPtr parent, out IntPtr children, out uint count);
+    [DllImport(Lib)] internal static extern int XFree(IntPtr data);
     [DllImport(Lib)] internal static extern int XPending(IntPtr display);
     [DllImport(Lib)] internal static extern int XNextEvent(IntPtr display, out XEvent xevent);
     [DllImport(Lib)] internal static extern int XFlush(IntPtr display);

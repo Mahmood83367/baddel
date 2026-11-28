@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -35,6 +36,15 @@ public sealed class LinuxSettings
 
     public int DoublePressMs { get; set; } = 300;
     public bool SwitchLayout { get; set; } = true;
+
+    /// <summary>
+    /// "automatic" (default), "on" or "off": whether the shortcut is left to terminal
+    /// windows so the shell integration can use the same key. See TerminalSharing.
+    /// </summary>
+    public string TerminalSharing { get; set; } = "automatic";
+
+    /// <summary>Extra window classes (WM_CLASS) to treat as terminals.</summary>
+    public List<string> TerminalWindowClasses { get; set; } = new();
 
     public static string Directory =>
         Environment.GetEnvironmentVariable("BADDEL_SETTINGS_DIR") is { Length: > 0 } custom
@@ -348,6 +358,8 @@ public sealed class Session
     private IntPtr display;
     private IntPtr root;
     private int grabbedKeycode;
+    private uint grabbedModifiers;
+    private bool grabHeld;
     private bool keyDown;
     private ILayoutSwitcher switcher = new NoLayoutSwitcher();
 
@@ -430,6 +442,7 @@ public sealed class Session
             while (true)
             {
                 PumpX11();
+                ShareShortcutWithTerminals();
                 while (triggers.TryDequeue(out var command))
                 {
                     if (command == "quit") return 0;
@@ -494,18 +507,81 @@ public sealed class Session
         if (keysym == IntPtr.Zero) return false;
         grabbedKeycode = X11.XKeysymToKeycode(display, keysym);
         if (grabbedKeycode == 0) return false;
-
-        xError = false;
-        // Caps Lock and Num Lock are modifiers too; grab each combination.
-        foreach (var extra in new[] { 0u, X11.LockMask, X11.Mod2Mask, X11.LockMask | X11.Mod2Mask })
-        {
-            X11.XGrabKey(display, grabbedKeycode, modifiers | extra, root, 0, X11.GrabModeAsync, X11.GrabModeAsync);
-        }
+        grabbedModifiers = modifiers;
         // With detectable auto-repeat a held key sends presses without releases,
         // so a press that follows a press is a repeat.
         X11.XkbSetDetectableAutoRepeat(display, 1, out _);
+        return SetGrab(true);
+    }
+
+    private static readonly uint[] LockVariants = { 0u, X11.LockMask, X11.Mod2Mask, X11.LockMask | X11.Mod2Mask };
+
+    private bool SetGrab(bool grab)
+    {
+        xError = false;
+        // Caps Lock and Num Lock are modifiers too; grab each combination.
+        foreach (var extra in LockVariants)
+        {
+            if (grab) X11.XGrabKey(display, grabbedKeycode, grabbedModifiers | extra, root, 0, X11.GrabModeAsync, X11.GrabModeAsync);
+            else X11.XUngrabKey(display, grabbedKeycode, grabbedModifiers | extra, root);
+        }
         X11.XSync(display, 0);
+        if (!xError) grabHeld = grab;
         return !xError;
+    }
+
+    // Sharing the shortcut with terminals ---------------------------------------
+
+    /// <summary>
+    /// Window classes of terminal emulators. A grabbed key never reaches the
+    /// focused window, so while one of these has the keyboard focus and sharing is
+    /// active the grab is released, and the terminal receives the combination.
+    /// </summary>
+    private static readonly string[] KnownTerminalClasses =
+    {
+        "gnome-terminal-server", "gnome-terminal", "xterm", "konsole", "kitty", "alacritty", "xfce4-terminal", "tilix",
+        "terminator", "ptyxis", "kgx", "org.gnome.console", "org.wezfurlong.wezterm", "st", "urxvt", "mate-terminal", "lxterminal",
+    };
+
+    private long sharingCheckedAt;
+
+    private void ShareShortcutWithTerminals()
+    {
+        if (display == IntPtr.Zero || grabbedKeycode == 0) return;
+        var now = Environment.TickCount64;
+        if (now - sharingCheckedAt < 150) return;
+        sharingCheckedAt = now;
+        var key = TerminalKey.Parse(settings.Shortcut) is { } combination ? TerminalKey.Resolve(combination, TerminalPlatform.Linux) : null;
+        var pass = TerminalSharing.IsActive(settings.TerminalSharing, TerminalSharing.IntegrationSeen(LinuxSettings.Directory), key)
+            && FocusedWindowIsTerminal();
+        if (pass == grabHeld) SetGrab(!pass);
+    }
+
+    /// <summary>Looks only at the class name of the window that has the keyboard focus.</summary>
+    private bool FocusedWindowIsTerminal()
+    {
+        if (X11.XGetInputFocus(display, out var window, out _) == 0) return false;
+        // The focus is often an unnamed child; its ancestors carry WM_CLASS.
+        for (var depth = 0; depth < 6 && window != IntPtr.Zero && window.ToInt64() > 1 && window != root; depth++)
+        {
+            xError = false;
+            if (X11.XGetClassHint(display, window, out var hint) != 0 && !xError)
+            {
+                var name = hint.Name == IntPtr.Zero ? "" : Marshal.PtrToStringAnsi(hint.Name) ?? "";
+                var windowClass = hint.Class == IntPtr.Zero ? "" : Marshal.PtrToStringAnsi(hint.Class) ?? "";
+                if (hint.Name != IntPtr.Zero) X11.XFree(hint.Name);
+                if (hint.Class != IntPtr.Zero) X11.XFree(hint.Class);
+                bool Matches(string value) =>
+                    KnownTerminalClasses.Contains(value, StringComparer.OrdinalIgnoreCase)
+                    || settings.TerminalWindowClasses.Contains(value, StringComparer.OrdinalIgnoreCase);
+                return Matches(name) || Matches(windowClass);
+            }
+            xError = false;
+            if (X11.XQueryTree(display, window, out _, out var parent, out var children, out _) == 0 || xError) return false;
+            if (children != IntPtr.Zero) X11.XFree(children);
+            window = parent;
+        }
+        return false;
     }
 
     private void PumpX11()

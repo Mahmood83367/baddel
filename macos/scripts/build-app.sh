@@ -33,6 +33,9 @@ sed "s/__VERSION__/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 for layout in us-english uk-english-mac arabic-mac arabic-pc; do
   cp "../shared/layouts/$layout.json" "$APP/Contents/Resources/layouts/"
 done
+# Opt-in zsh integration; a user sources it from ~/.zshrc (docs/TERMINAL.md).
+mkdir -p "$APP/Contents/Resources/shell"
+cp ../shared/shell/baddel.zsh "$APP/Contents/Resources/shell/baddel.zsh"
 cp ../LICENSE "$APP/Contents/Resources/LICENSE"
 cp Resources/Baddel.icns "$APP/Contents/Resources/Baddel.icns"
 

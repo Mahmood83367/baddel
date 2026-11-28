@@ -100,6 +100,25 @@ Limits of this first rule, stated plainly:
 
 The whole field is replaced in a single write, so one Undo restores it.
 
+## Command lines and Claude Code drafts
+
+The terminal integrations ([guide](TERMINAL.md)) use the rules above with two
+differences:
+
+- **Mixed text follows the active layout.** When the text has letters of both
+  scripts, the script of the active keyboard layout is the source, whichever
+  script has more letters. In `git commit -m "اثممخ"` the correct English
+  outweighs the mistyped word, and the layout that is still active (Arabic)
+  says which part is wrong. Without a known layout the letter count decides,
+  as above.
+- **Claude Code markers are kept.** In a draft, `[Image #1]`,
+  `[Pasted text #1 +30 lines]` and `[...Truncated text #1 +120 lines...]` come
+  back unchanged, and their letters are not evidence for either script.
+- **Claude's previous reply is not the draft.** When Claude Code puts its last
+  reply at the top of the file, everything up to and including the line
+  `# ─── Write your reply below this line ───` is left out of the direction
+  decision and comes back unchanged.
+
 ## When nothing is changed
 
 Baddel refuses, and leaves the field untouched, when:

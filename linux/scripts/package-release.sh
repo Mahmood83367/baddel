@@ -5,20 +5,27 @@
 #   dist/Baddel-<version>-linux-x64-prototype.tar.gz.sha256
 #
 # The archive holds one folder with the self-contained `baddel` binary,
-# LICENSE, README.txt and SHA256SUMS.txt. Needs the .NET 8 SDK.
+# the opt-in Bash integration (shell/baddel.bash), LICENSE, README.txt and
+# SHA256SUMS.txt. Needs the .NET 8 SDK.
+#
+# BADDEL_RID=linux-arm64 builds for another architecture, for local checks only;
+# the published download is x64.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 VERSION=$(tr -d '[:space:]' < VERSION)
-NAME="Baddel-$VERSION-linux-x64-prototype"
+RID="${BADDEL_RID:-linux-x64}"
+NAME="Baddel-$VERSION-$RID-prototype"
 STAGE="dist/$NAME"
 
 rm -rf "$STAGE" "dist/$NAME.tar.gz" "dist/$NAME.tar.gz.sha256" dist/linux-publish
 mkdir -p "$STAGE"
-dotnet publish linux/src/Baddel.Linux/Baddel.Linux.csproj -c Release -r linux-x64 --self-contained true \
+dotnet publish linux/src/Baddel.Linux/Baddel.Linux.csproj -c Release -r "$RID" --self-contained true \
   -p:PublishSingleFile=true -p:DebugType=none -o dist/linux-publish --nologo -v q
 cp dist/linux-publish/baddel "$STAGE/baddel"
 chmod 755 "$STAGE/baddel"
 rm -rf dist/linux-publish
+mkdir -p "$STAGE/shell"
+cp shared/shell/baddel.bash "$STAGE/shell/baddel.bash"
 cp LICENSE "$STAGE/LICENSE"
 
 cat > "$STAGE/README.txt" <<TXT
@@ -56,6 +63,20 @@ Use
   your desktop's keyboard settings to:  /path/to/baddel --trigger
   and, if you want, another to:         /path/to/baddel --undo
 
+In a terminal  (opt-in; works without the desktop parts above)
+  Bash command line: add this line to ~/.bashrc, with the folder you unpacked:
+    source /path/to/shell/baddel.bash
+  The same shortcut then works on the command line: once fixes the last word
+  before the cursor, twice quickly the whole line. Ctrl+_ undoes (twice after
+  a double press). Nothing is run for you. Needs Bash 4.0 or later and
+  libxkbcommon0 with xkb-data; xterm also needs metaSendsEscape.
+  ./baddel --terminal-key status   says what is active.
+  Claude Code composer: start Claude Code with
+    VISUAL="/path/to/baddel --fix-draft" claude
+  and press Ctrl+G to fix the whole unsent draft; Ctrl+_ undoes. Nothing is
+  sent for you.
+  Baddel does not switch the keyboard layout in a terminal.
+
 Settings  (~/.config/baddel/settings.json, all optional)
   {
     "Shortcut": "Ctrl+Alt+space",
@@ -89,7 +110,7 @@ Redistribution
   and the license notice in LICENSE.
 TXT
 
-(cd "$STAGE" && sha256sum baddel LICENSE README.txt > SHA256SUMS.txt)
+(cd "$STAGE" && sha256sum baddel shell/baddel.bash LICENSE README.txt > SHA256SUMS.txt)
 tar -C dist --owner=0 --group=0 -czf "dist/$NAME.tar.gz" "$NAME"
 rm -rf "$STAGE"
 (cd dist && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")

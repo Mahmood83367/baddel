@@ -4,6 +4,21 @@ import Carbon.HIToolbox
 
 import BaddelMacKit
 
+// `Baddel --fix-text …` and `Baddel --fix-draft FILE` correct text for a shell
+// line editor or for Claude Code's external editor, then exit. See
+// `TextFixCommand` and `docs/TERMINAL.md`.
+if TextFixCommand.handles(CommandLine.arguments) {
+    exit(TextFixCommand.run(CommandLine.arguments))
+}
+
+// `Baddel --terminal-key zsh|bash|pwsh|claude|status` says how the shortcut set
+// in Settings reaches a terminal: what a shell binds, what Claude Code calls
+// the key, or why it cannot be delivered. The shell integration asks this once
+// when it loads. See `TerminalSharing`.
+if let index = CommandLine.arguments.firstIndex(of: "--terminal-key") {
+    exit(TerminalKeyCommand.run(CommandLine.arguments.dropFirst(index + 1).first ?? "status"))
+}
+
 // `Baddel --self-check` verifies the pieces that need no user interaction and
 // exits: layout data loads and the system accepts the configured shortcut.
 if CommandLine.arguments.contains("--self-check") {

@@ -111,6 +111,18 @@ if Baddel had switched it. The record is discarded when the panel disappears.
 Baddel checks `AXIsProcessTrusted()` without prompting. The system prompt is
 only shown when the user clicks **Request Access…** in Baddel's own window.
 
+## Terminals
+
+A terminal prompt is not an accessibility text field, so the shortcut path
+above does not apply there. Instead the host hands over its own buffer:
+`shared/shell/baddel.zsh`, `baddel.bash` and `baddel.ps1` are line-editor
+widgets that pipe the command line to `baddel --fix-text` and put the answer
+back, and Claude Code runs `baddel --fix-draft FILE` as its external editor.
+Both commands are the packaged executable in a run-and-exit mode; they use
+`TextFix` in the core (the same planner, plus cursor-unit conversion and the
+Claude Code markers) and the app's layout settings. No keys are sent and no
+screen is read; undo belongs to the host. See [the terminal guide](TERMINAL.md).
+
 ## Windows
 
 The Windows app mirrors the macOS design; only the system APIs differ.

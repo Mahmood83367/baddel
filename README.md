@@ -47,6 +47,35 @@ Extract the whole ZIP to a permanent folder and run `Baddel.exe`. The package in
 
 Extract the `x64` prototype and run `./baddel` from its folder in an X11 session. Automated testing used Ubuntu 24.04 and a GTK text field; the prototype has not been run on a real desktop yet. The limited Wayland path needs a desktop-configured shortcut and manual layout switching, and is untested. [Linux dependencies and setup](linux/README.md)
 
+## In a terminal
+
+The shortcut above does not reach a terminal prompt, so Baddel offers two opt-in integrations there. Neither runs a command or sends a message for you, and Baddel does not switch the keyboard layout in a terminal.
+
+**Shell command line.** Add one line to your shell's start-up file, then open a new terminal:
+
+| System and shell | File | Line to add |
+| --- | --- | --- |
+| macOS, zsh | `~/.zshrc` | `source /Applications/Baddel.app/Contents/Resources/shell/baddel.zsh` |
+| Windows, PowerShell | `$PROFILE` | `. "C:\path\to\Baddel\shell\baddel.ps1"` |
+| Linux, Bash | `~/.bashrc` | `source /path/to/Baddel/shell/baddel.bash` |
+
+1. Type a command without running it.
+2. **Press Baddel's shortcut once**, the same one as everywhere else, to correct the selected text, or the last word before the cursor. In Bash it is always the last word.
+3. **Press it twice quickly** to correct the whole command line.
+4. **Undo** with the shell's own key: `Ctrl+_` in zsh and Bash (twice in Bash after a double press), `Ctrl+Z` in PowerShell.
+
+Baddel lets go of its shortcut while a terminal window is in front, so the shell receives it. Two exceptions: PowerShell cannot be given `Ctrl+Alt+Space` (it reads it as Space), so there the key is `Ctrl+T` unless you choose a shortcut such as `Ctrl+Shift+Space` in Baddel's Settings; and stock xterm needs `metaSendsEscape`. `Baddel --terminal-key status` says what is active on your computer.
+
+**Claude Code's message box.** Set `VISUAL` for Claude Code to Baddel's draft command, for example in `~/.claude/settings.json`:
+
+```json
+{ "env": { "VISUAL": "/Applications/Baddel.app/Contents/MacOS/Baddel --fix-draft" } }
+```
+
+On Windows use `C:\path\to\Baddel\Baddel.exe --fix-draft`, on Linux `/path/to/Baddel/baddel --fix-draft`; the path must not contain spaces. Then press **`Ctrl+G`** in Claude Code to correct the whole unsent draft, and **`Ctrl+_`** to restore it. To use Baddel's own shortcut there too, add the entry printed by `Baddel --terminal-key claude` to `~/.claude/keybindings.json`; in macOS Terminal that also needs **Use Option as Meta key**. Claude Code hands over the whole draft only, so there is no last-word mode. Image markers such as `[Image #1]` and Claude's previous reply, when Claude Code shows it in the editor, are left as they are. Long pasted text reaches Baddel as part of the draft and can be converted with it. While this is set, `Ctrl+G` no longer opens a text editor.
+
+These integrations are part of the next version (`0.2.1`); the published `0.2.0` packages do not include them. [Terminal guide, settings and limits](docs/TERMINAL.md)
+
 ## Clipboard history on macOS
 
 1. Open **Clipboard History** from the menu bar or press `⌥⇧V`. Enable **Keep clipboard history on this Mac**.

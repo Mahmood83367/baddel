@@ -57,6 +57,14 @@ variant. Layout switching selects the session group whose layout and variant
 both match; if no group matches exactly, the text is corrected and the layout
 is left alone rather than switched to a different variant.
 
+## In a terminal
+
+Two opt-in integrations work without the desktop parts (no X11 session, no
+accessibility bus): `shell/baddel.bash` for the Bash command line, and
+`baddel --fix-draft` as Claude Code's external editor. They need
+`libxkbcommon0` and `xkb-data` for the key tables. Usage, shortcuts and limits
+are in the [terminal guide](../docs/TERMINAL.md).
+
 ## The trigger socket
 
 `baddel --trigger`, `--undo` and `--quit` talk to the running app through a

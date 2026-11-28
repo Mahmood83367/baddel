@@ -58,12 +58,101 @@ struct Shortcut: Equatable {
     private static func keyName(_ keyCode: UInt32) -> String {
         keyNames[Int(keyCode)] ?? "Key \(keyCode)"
     }
+
+    /// The same combination as a terminal would have to deliver it.
+    var terminalCombination: TerminalKey.Combination {
+        let name = Self.keyName(keyCode)
+        return TerminalKey.Combination(
+            control: carbonModifiers & UInt32(controlKey) != 0, alt: carbonModifiers & UInt32(optionKey) != 0,
+            shift: carbonModifiers & UInt32(shiftKey) != 0, command: carbonModifiers & UInt32(cmdKey) != 0,
+            key: name == "Space" ? "space" : name.lowercased())
+    }
+
+    var terminalKey: TerminalKey { TerminalKey.resolve(terminalCombination, platform: .macos) }
+}
+
+/// How the one shortcut is shared with terminal apps.
+///
+/// A registered global shortcut is consumed before the frontmost app sees it,
+/// so a terminal can only receive the combination while Baddel is not holding
+/// it. With pass-through active, Baddel releases the shortcut whenever a
+/// terminal app is in front and takes it back when another app is.
+enum TerminalSharing {
+    enum Mode: String {
+        /// Pass through once the shell or Claude Code integration has asked for the key.
+        case automatic
+        case on
+        case off
+    }
+
+    /// Terminal apps the shortcut is passed to. More can be added with
+    /// `defaults write app.baddel.Baddel terminalBundleIDs -array-add <bundle id>`.
+    static let knownTerminals = [
+        "com.apple.Terminal", "com.googlecode.iterm2", "com.mitchellh.ghostty", "net.kovidgoyal.kitty",
+        "org.alacritty", "com.github.wez.wezterm", "dev.warp.Warp-Stable",
+    ]
+
+    static func isTerminal(bundleID: String?, settings: Settings) -> Bool {
+        guard let bundleID else { return false }
+        return knownTerminals.contains(bundleID) || settings.extraTerminalBundleIDs.contains(bundleID)
+    }
+
+    /// Whether the shortcut is currently left to terminal apps.
+    static func isActive(settings: Settings) -> Bool {
+        guard settings.shortcut.terminalKey.isDeliverable else { return false }
+        switch settings.terminalSharing {
+        case .on: return true
+        case .off: return false
+        case .automatic: return settings.terminalIntegrationSeen
+        }
+    }
+
+    /// One place that says what is active, for Settings and `--terminal-key status`.
+    static func summary(settings: Settings) -> [String] {
+        let shortcut = settings.shortcut
+        let key = shortcut.terminalKey
+        var lines = ["Shortcut: \(shortcut.displayString) (set in Baddel’s Settings; used everywhere)"]
+        guard key.isDeliverable else {
+            lines.append("In a terminal: not available. \(reasonText(key.reason)) The shell integration falls back to Ctrl+T, and Claude Code to Ctrl+G.")
+            return lines
+        }
+        let sharing: String
+        switch settings.terminalSharing {
+        case .on: sharing = "on"
+        case .off: sharing = "off (the shortcut is not passed to terminal apps)"
+        case .automatic:
+            sharing = settings.terminalIntegrationSeen
+                ? "on (automatic: a terminal integration is installed)"
+                : "waiting (automatic: starts when a shell or Claude Code integration first asks for the key)"
+        }
+        lines.append("Passed to terminal apps: \(sharing)")
+        if key.needsOptionAsMeta {
+            lines.append(key.sequences.count > 1
+                ? "zsh: works with Terminal’s default settings. Claude Code: needs “Use Option as Meta key” in Terminal’s profile, or a terminal that reports modifier keys; otherwise use Ctrl+G."
+                : "Needs “Use Option as Meta key” in Terminal’s profile, or a terminal that reports modifier keys.")
+        } else {
+            lines.append("zsh and Claude Code receive it in any terminal.")
+        }
+        return lines
+    }
+
+    static func reasonText(_ reason: String?) -> String {
+        switch reason {
+        case "usesCommandKey": return "Terminals do not pass on combinations that use Command."
+        case "reservedInTerminals": return "That combination already has a fixed meaning in every terminal."
+        case "needsControlOrAlt": return "A terminal needs Control or Option in the combination."
+        default: return "A terminal sends nothing a program could recognise for that key."
+        }
+    }
 }
 
 /// User preferences, stored in `UserDefaults`. Nothing here is user text.
 final class Settings {
     static let shared = Settings()
-    private let defaults = UserDefaults.standard
+    /// `BADDEL_SETTINGS_SUITE` names another preferences domain, so checks never
+    /// read or change the real settings.
+    private let defaults: UserDefaults = ProcessInfo.processInfo.environment["BADDEL_SETTINGS_SUITE"]
+        .flatMap { $0.isEmpty ? nil : UserDefaults(suiteName: $0) } ?? .standard
 
     var shortcut: Shortcut {
         get {
@@ -121,6 +210,20 @@ final class Settings {
         get { defaults.object(forKey: "lastAutomaticUpdateCheck") as? Date }
         set { defaults.set(newValue, forKey: "lastAutomaticUpdateCheck") }
     }
+
+    /// Whether terminal apps are left the shortcut. See `TerminalSharing`.
+    var terminalSharing: TerminalSharing.Mode {
+        get { defaults.string(forKey: "terminalSharing").flatMap(TerminalSharing.Mode.init(rawValue:)) ?? .automatic }
+        set { defaults.set(newValue.rawValue, forKey: "terminalSharing") }
+    }
+
+    /// Set the first time a shell or Claude Code integration asks which key to bind.
+    var terminalIntegrationSeen: Bool {
+        get { defaults.bool(forKey: "terminalIntegrationSeen") }
+        set { defaults.set(newValue, forKey: "terminalIntegrationSeen") }
+    }
+
+    var extraTerminalBundleIDs: [String] { defaults.stringArray(forKey: "terminalBundleIDs") ?? [] }
 
     /// Experimental and off by default.
     var pasteFallbackEnabled: Bool {

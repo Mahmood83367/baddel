@@ -75,6 +75,12 @@ public sealed class AppSettings
     public int DoublePressMs { get; set; } = 300;
     public bool SwitchLayout { get; set; } = true;
 
+    /// <summary>
+    /// "automatic" (default), "on" or "off": whether the shortcut is left to terminal
+    /// windows so PSReadLine can use the same key. See TerminalSharing.
+    /// </summary>
+    public string TerminalSharing { get; set; } = "automatic";
+
     /// <summary>Experimental and off by default.</summary>
     public bool PasteFallback { get; set; }
 
@@ -145,6 +151,16 @@ public sealed class AppSettings
 }
 
 /// <summary>Works out where the Undo popup goes. Pure geometry, in screen pixels.</summary>
+/// <summary>The window in front, by class name only (used to share the shortcut with terminals).</summary>
+public static class ForegroundWindow
+{
+    public static string ClassName()
+    {
+        var window = NativeMethods.GetForegroundWindow();
+        return window == IntPtr.Zero ? string.Empty : NativeMethods.ClassName(window);
+    }
+}
+
 public static class PopupPlacement
 {
     public const int Gap = 6;

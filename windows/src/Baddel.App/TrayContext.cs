@@ -61,6 +61,8 @@ internal sealed class TrayContext : ApplicationContext
         timer.Tick += (_, _) => TimerFired();
         hotKeys.Pressed += HotKeyPressed;
         hotKeys.Register(settings.HotKey);
+        sharingTimer.Tick += (_, _) => ShareShortcutWithTerminals();
+        sharingTimer.Start();
         RefreshMenu();
         updateTimer.Tick += (_, _) => CheckAutomaticallyIfDue();
         updateTimer.Start();
@@ -76,7 +78,35 @@ internal sealed class TrayContext : ApplicationContext
     {
         shortcutItem.Text = hotKeys.IsRegistered
             ? $"Fix text: {settings.HotKey}  (press twice for the whole field)"
-            : $"Shortcut {settings.HotKey} is unavailable";
+            : passedToTerminal
+                ? $"Fix text: {settings.HotKey}  (handled by the terminal in front)"
+                : $"Shortcut {settings.HotKey} is unavailable";
+    }
+
+    // Sharing the shortcut with terminals --------------------------------------
+
+    /// <summary>
+    /// Window classes of terminal hosts: Windows Terminal and the classic console.
+    /// A registered hot key never reaches the window in front, so while one of
+    /// these is in front and sharing is active the hot key is released and
+    /// PSReadLine receives the combination. Only the class name is looked at.
+    /// </summary>
+    private static readonly string[] TerminalWindowClasses = { "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass", "mintty" };
+
+    private readonly System.Windows.Forms.Timer sharingTimer = new() { Interval = 200 };
+    private bool passedToTerminal;
+
+    private void ShareShortcutWithTerminals()
+    {
+        if (settingsForm is { IsDisposed: false }) return;
+        var key = TerminalKey.Parse(settings.HotKey.ToString()) is { } combination ? TerminalKey.Resolve(combination, TerminalPlatform.Windows) : null;
+        var pass = TerminalSharing.IsActive(settings.TerminalSharing, TerminalSharing.IntegrationSeen(AppSettings.Directory), key)
+            && Array.IndexOf(TerminalWindowClasses, ForegroundWindow.ClassName()) >= 0;
+        if (pass == passedToTerminal) return;
+        passedToTerminal = pass;
+        if (pass) hotKeys.Unregister();
+        else hotKeys.Register(settings.HotKey);
+        RefreshMenu();
     }
 
     // Hot key ----------------------------------------------------------------

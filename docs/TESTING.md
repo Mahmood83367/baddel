@@ -7,6 +7,122 @@ it are the 0.1.0 record, which still applies.
 
 ## Added in 0.2.1
 
+### Terminal: shell command line and Claude Code
+
+Run by `tools/terminal-check.py`. Each check starts its **own** shell or its
+own Claude Code in a new pseudo-terminal, with a throwaway home, start-up file
+and configuration; types synthetic text; presses the keys; and reads the edit
+buffer back through the program's own hooks (a test-only key binding in the
+shells, the same `Ctrl+G` hand-over in Claude Code). Enter is never pressed on
+a command or a draft, and each check confirms that nothing was run or
+submitted. No personal shell configuration, history or running session was
+used.
+
+**Shell command line** — the same cases in every shell. The key pressed is
+Baddel's own shortcut as a terminal delivers it (zsh: the no-break space of
+`⌥⇧Space`, and Escape-Space for Option as Meta; Bash: Escape-NUL for
+`Ctrl+Alt+Space`), and `Ctrl+T` in the fallback and `BADDEL_KEY` runs and in
+PowerShell:
+
+| Case | zsh | Bash | PowerShell |
+|---|---|---|---|
+| One press corrects the last word (`echo ugd;l` → `echo عليكم`) | Passed | Passed | Passed |
+| The shell's undo restores it (`Ctrl+_`, `Ctrl+Z`) | Passed | Passed | Passed |
+| Two quick presses correct the whole line | Passed | Passed | Passed |
+| Undo after a double press returns to the typed text | Passed (1 step) | Passed (2 steps) | Passed (1 step) |
+| Arabic typed for English (`git سفشفعس` → `git status`) | Passed | Passed | Passed |
+| One press on a mixed line changes only the last word | Passed | Passed | Passed |
+| A slow second press is a new single press, not a whole-line correction | Passed | Passed | Passed |
+| Nothing to correct: the line is left alone | Passed | Passed | Passed |
+| Cursor in the middle: the word before it, cursor placed after it | Passed | Passed | Passed |
+| A selection of two words is corrected instead of the last word | Passed | Not applicable | Passed |
+| No command line was run | Passed | Passed | Passed |
+
+| System | What ran | Build under test |
+|---|---|---|
+| macOS 26, Apple silicon | zsh 5.9 in a pseudo-terminal | The packaged `Baddel.app` (ad-hoc signed local build) and the script inside it |
+| GitHub-hosted macOS 15 | The same check, in CI | The packaged universal app from the ZIP |
+| Linux, Ubuntu 24.04, 22.04, 20.04 and 18.04 containers | Bash 5.2, 5.1, 5.0 and 4.4 in a pseudo-terminal | The packaged `baddel` built for arm64 with the release options, and `shell/baddel.bash` |
+| GitHub-hosted Ubuntu 24.04 | The same check with Bash 5.2, in CI | The packaged x64 binary from the archive |
+| Windows 11 (26200), a separate temporary folder | Windows PowerShell 5.1 with PSReadLine 2.0.0, and PowerShell 7.7 with PSReadLine 2.4.5, each in an SSH terminal (ConPTY) | `Baddel.exe` published with the release options (cross-built), and `shell\baddel.ps1` |
+
+Bash 4.4 reports the cursor in bytes and Bash 5 in characters; both were
+exercised with Arabic text before the cursor. CI on Windows runs the
+`--fix-text` and `--fix-draft` commands of the packaged ZIP with redirected
+UTF-8 input and output, but not PSReadLine itself, which needs a console.
+
+**Claude Code's message box** — Claude Code 2.1.332, started with an empty
+configuration directory and a placeholder key; nothing was sent:
+
+| Case | macOS | Linux | Windows |
+|---|---|---|---|
+| The draft is handed to the editor and read back unchanged | Passed | Passed | Passed |
+| `Ctrl+G` corrects the whole draft (`ugd;l hgsghl` → `عليكم السلام`) | Passed | Passed | Passed |
+| `Ctrl+_` restores the draft | Passed | Passed | Passed |
+| Arabic typed for English (`اثممخ صخقمي` → `hello world`) | Passed | Passed | Passed |
+| An `[Image #1]` marker, typed as text, is kept | Passed | Passed | Passed |
+| A draft of two lines keeps its line break | Passed | Passed | Passed |
+| A draft with nothing to convert is left alone | Passed | Passed | Passed |
+| A folded 30-line paste reaches the editor as its full text | Passed | Passed | Passed |
+| Pasted English stays when Arabic was the active layout (layout given to the command explicitly) | Passed | Passed | Not run |
+| `VISUAL=<Baddel> --fix-draft`, as documented, without the check's editor script | Passed | Passed | Passed |
+| Nothing was submitted (no transcript was created) | Passed | Passed | Not checked |
+
+macOS: in a pseudo-terminal, with the packaged app. Linux: Ubuntu 24.04
+container with Node 18 and the packaged arm64 build. Windows: Windows 11 in an
+SSH terminal, Claude Code installed into the temporary folder with npm.
+Setting `VISUAL` through the `env` block of Claude Code's `settings.json` was
+tried on macOS only.
+
+**One shortcut** — how Baddel's own combination reaches each host:
+
+| Check | Result |
+|---|---|
+| zsh binds what `--terminal-key zsh` reports for `⌥⇧Space`; all shell cases pass with the no-break space and with Escape-Space (pseudo-terminal, and in CI on macOS 15) | Passed |
+| A stored shortcut with Command: the script falls back to `Ctrl+T`, and the status command says the shortcut cannot reach a terminal | Passed (zsh), Passed (Bash, `Super+space`) |
+| `BADDEL_KEY` overrides the shortcut | Passed (zsh, Bash, PowerShell) |
+| Loading a script switches automatic pass-through on (macOS preference, Linux marker file) | Passed |
+| macOS layout tables: Option-Space and Option-Shift-Space give U+00A0 under ABC, British, Arabic, Arabic – PC and Arabic – QWERTY | Observed |
+| Claude Code with the entry from `--terminal-key claude` in its `keybindings.json`: Escape-Space corrects the draft, `Ctrl+_` restores it (macOS, pseudo-terminal) | Passed |
+| **Real terminal windows on Linux** (`linux/scripts/terminal-window-check.sh`, GitHub-hosted Ubuntu 24.04, X11 under Xvfb with openbox, the packaged app running, keys sent as raw key codes through XTEST): | |
+| – with sharing off, `Ctrl+Alt+Space` never reaches the terminal (the grab consumes it) | Passed in xterm, xfce4-terminal, GNOME Terminal |
+| – with sharing on (automatic), English layout: one press, `Ctrl+_`, two presses | Passed in all three |
+| – with the **Arabic layout active**, the same physical keys type Arabic, and the shortcut pressed under that layout corrects the last word and the whole line | Passed in all three |
+| – xterm with stock settings | Not corrected: it does not send Alt as Escape; `metaSendsEscape` is needed (the passing xterm run sets it) |
+| PSReadLine 2.0.0 and 2.4.5 record the chord `Ctrl+Alt+Spacebar` as `Spacebar` (Windows 11) | Observed; Baddel never offers that chord, and the script removes any binding that ends up without a modifier |
+| PowerShell with the default shortcut: the handler is bound to `Ctrl+t` only, and all shell cases pass with it (CI-built ZIP, SSH terminal) | Passed |
+
+Not verified:
+
+- **Key presses in a Terminal.app window and in a Windows Terminal window.**
+  I may not type into terminal applications on the Mac this was developed on,
+  and the Windows machine had no interactive desktop session. What stands in
+  for them: on macOS the layout tables and the pseudo-terminal runs with the
+  exact bytes; on Windows the PSReadLine chord table above. That Terminal
+  passes `⌥⇧Space` on as U+00A0 with its default settings, and that Baddel's
+  release of the shortcut takes effect when Terminal comes to the front, were
+  not observed in a window. On Windows nothing about the shortcut was observed
+  in a window: not the release for Windows Terminal, not `Ctrl+Shift+Space` in
+  PSReadLine, not `Ctrl+Alt+Space` in Claude Code (an SSH terminal cannot send
+  it as a key event).
+- Claude Code on Linux and Windows with Baddel's shortcut in
+  `keybindings.json` (on Linux only because the container host was not
+  available for this round; `Ctrl+G` was verified on both earlier).
+- That `Ctrl+G` and `Ctrl+_` arrive while an Arabic layout is active was
+  checked on macOS only against the layout tables (Arabic, Arabic – PC and
+  Arabic – QWERTY produce the same control characters as ABC), not by typing.
+- Claude Code's "Show last response in external editor" in a live session
+  with a real reply. The block's format was taken from Claude Code 2.1.332
+  itself and is covered by the shared fixtures and the command tests.
+- Reading the active layout. On macOS the command read the active input
+  source correctly with an English layout active; Arabic active was not
+  tried, and the checks pass the layout explicitly. On Windows and Linux it
+  was not exercised at all (an SSH session and a container have no layout).
+- A real attached image or file in Claude Code. Only the marker text was
+  tested.
+- Shells and versions other than those listed, vi editing modes, and Claude
+  Code versions other than 2.1.332.
+
 ### macOS installer, upgrade and Open at Login
 
 Run by `macos/scripts/pkg-install-check.sh` on a **throwaway GitHub-hosted

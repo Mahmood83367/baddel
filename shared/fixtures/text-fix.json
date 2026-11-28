@@ -1,0 +1,558 @@
+{
+  "comment": "TextFix cases run by the Swift and .NET test suites. Cursor and selection are counted in `unit`; a null cursor means the end of the text.",
+  "cases": [
+    {
+      "name": "last word at the end of a command",
+      "arabicLayout": "arabic-pc",
+      "text": "echo ugd;l",
+      "mode": "word",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "echo عليكم",
+        "cursor": 10
+      }
+    },
+    {
+      "name": "last word, cursor given in code points",
+      "arabicLayout": "arabic-pc",
+      "text": "echo ugd;l",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 10,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "echo عليكم",
+        "cursor": 10
+      }
+    },
+    {
+      "name": "last word, cursor in the middle of the line",
+      "arabicLayout": "arabic-pc",
+      "text": "echo ugd;l now",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 10,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "echo عليكم now",
+        "cursor": 10
+      }
+    },
+    {
+      "name": "last word after Arabic text, cursor in UTF-8 bytes",
+      "arabicLayout": "arabic-pc",
+      "text": "مرحبا ugd;l",
+      "mode": "word",
+      "unit": "bytes",
+      "cursor": 16,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "مرحبا عليكم",
+        "cursor": 21
+      }
+    },
+    {
+      "name": "byte cursor inside a character is refused",
+      "arabicLayout": "arabic-pc",
+      "text": "مرحبا ugd;l",
+      "mode": "word",
+      "unit": "bytes",
+      "cursor": 1,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "reject": "invalidRange"
+      }
+    },
+    {
+      "name": "cursor past the end is refused",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 9,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "reject": "invalidRange"
+      }
+    },
+    {
+      "name": "emoji before the word, code points",
+      "arabicLayout": "arabic-pc",
+      "text": "😀 ugd;l",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 7,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "😀 عليكم",
+        "cursor": 7
+      }
+    },
+    {
+      "name": "emoji before the word, UTF-16",
+      "arabicLayout": "arabic-pc",
+      "text": "😀 ugd;l",
+      "mode": "word",
+      "unit": "utf16",
+      "cursor": 8,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "😀 عليكم",
+        "cursor": 8
+      }
+    },
+    {
+      "name": "lam-alef key shortens the word and moves the cursor",
+      "arabicLayout": "arabic-mac",
+      "text": "hgsghl now",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 6,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "السلام now",
+        "cursor": 6
+      }
+    },
+    {
+      "name": "PC lam-alef: one key becomes two letters",
+      "arabicLayout": "arabic-pc",
+      "text": "b now",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 1,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "لا now",
+        "cursor": 2
+      }
+    },
+    {
+      "name": "selection only",
+      "arabicLayout": "arabic-pc",
+      "text": "git ugd;l hgsghl",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 9,
+      "selection": [
+        4,
+        5
+      ],
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "git عليكم hgsghl",
+        "cursor": 9
+      }
+    },
+    {
+      "name": "selection wins over the cursor position",
+      "arabicLayout": "arabic-mac",
+      "text": "ugd;l hgsghl",
+      "mode": "word",
+      "unit": "scalars",
+      "cursor": 0,
+      "selection": [
+        6,
+        6
+      ],
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "ugd;l السلام",
+        "cursor": 12
+      }
+    },
+    {
+      "name": "whole line",
+      "arabicLayout": "arabic-mac",
+      "text": "hgsghl ugd;l",
+      "mode": "line",
+      "unit": "scalars",
+      "cursor": 12,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "السلام عليكم",
+        "cursor": 12
+      }
+    },
+    {
+      "name": "whole line keeps a cursor that was not at the end",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l ugd;l",
+      "mode": "line",
+      "unit": "scalars",
+      "cursor": 3,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "عليكم عليكم",
+        "cursor": 3
+      }
+    },
+    {
+      "name": "whole line, Arabic typed for English",
+      "arabicLayout": "arabic-pc",
+      "text": "ثؤاخ اثممخ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "echo hello",
+        "cursor": 10
+      }
+    },
+    {
+      "name": "mixed line without a layout hint: the script with more letters is converted",
+      "arabicLayout": "arabic-pc",
+      "text": "ls ثؤاخ اثممخ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "ls echo hello",
+        "cursor": 13
+      }
+    },
+    {
+      "name": "word mode with only spaces before the cursor",
+      "arabicLayout": "arabic-pc",
+      "text": "   ",
+      "mode": "word",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "reject": "noWord"
+      }
+    },
+    {
+      "name": "empty buffer",
+      "arabicLayout": "arabic-pc",
+      "text": "",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "reject": "emptyField"
+      }
+    },
+    {
+      "name": "only whitespace has nothing to convert",
+      "arabicLayout": "arabic-pc",
+      "text": " \t ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "reject": "nothingToConvert"
+      }
+    },
+    {
+      "name": "several lines keep their line breaks",
+      "arabicLayout": "arabic-mac",
+      "text": "ugd;l\nhgsghl\n",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "عليكم\nالسلام\n",
+        "cursor": 13
+      }
+    },
+    {
+      "name": "Claude draft keeps an image marker",
+      "arabicLayout": "arabic-mac",
+      "text": "ugd;l [Image #1] hgsghl",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "عليكم [Image #1] السلام",
+        "cursor": 23
+      }
+    },
+    {
+      "name": "the same text without the Claude rule converts the marker",
+      "arabicLayout": "arabic-mac",
+      "text": "[Image #1]",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": false,
+      "expect": {
+        "text": "جّوشلث #١ة",
+        "cursor": 10
+      }
+    },
+    {
+      "name": "Claude draft keeps a paste marker",
+      "arabicLayout": "arabic-pc",
+      "text": "[Pasted text #2 +14 lines] ugd;l",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "[Pasted text #2 +14 lines] عليكم",
+        "cursor": 32
+      }
+    },
+    {
+      "name": "Claude draft keeps a truncated-paste marker",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l [...Truncated text #1 +120 lines...]",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "عليكم [...Truncated text #1 +120 lines...]",
+        "cursor": 42
+      }
+    },
+    {
+      "name": "Claude draft: marker letters are not evidence",
+      "arabicLayout": "arabic-pc",
+      "text": "[Image #1] [Image #2] لهف",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "[Image #1] [Image #2] git",
+        "cursor": 25
+      }
+    },
+    {
+      "name": "Claude draft with only markers gives no direction",
+      "arabicLayout": "arabic-pc",
+      "text": "[Image #1] [Image #2]",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "reject": "ambiguousDirection"
+      }
+    },
+    {
+      "name": "Claude draft: bracketed text that is not a marker is converted",
+      "arabicLayout": "arabic-pc",
+      "text": "[ugd;l]",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "جعليكمد",
+        "cursor": 7
+      }
+    },
+    {
+      "name": "Claude draft with only markers and a layout hint has nothing to convert",
+      "arabicLayout": "arabic-pc",
+      "text": "[Image #1] [Image #2]",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "latin",
+      "claude": true,
+      "expect": {
+        "reject": "nothingToConvert"
+      }
+    },
+    {
+      "name": "mixed line: the active layout decides, not the letter count (Arabic active)",
+      "arabicLayout": "arabic-pc",
+      "text": "git commit -m \"اثممخ\"",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "arabic",
+      "claude": false,
+      "expect": {
+        "text": "git commit -m \"hello\"",
+        "cursor": 21
+      }
+    },
+    {
+      "name": "mixed line: the active layout decides (English active)",
+      "arabicLayout": "arabic-pc",
+      "text": "مرحبا مرحبا مرحبا ugd;l",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "latin",
+      "claude": false,
+      "expect": {
+        "text": "مرحبا مرحبا مرحبا عليكم",
+        "cursor": 23
+      }
+    },
+    {
+      "name": "one script only: the text decides even against the hint",
+      "arabicLayout": "arabic-pc",
+      "text": "ugd;l",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "arabic",
+      "claude": false,
+      "expect": {
+        "text": "عليكم",
+        "cursor": 5
+      }
+    },
+    {
+      "name": "Claude draft: pasted English lines stay when Arabic was the active layout",
+      "arabicLayout": "arabic-pc",
+      "text": "error: file not found\nat main.swift line 12\nاثممخ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "arabic",
+      "claude": true,
+      "expect": {
+        "text": "error: file not found\nat main.swift line 12\nhello",
+        "cursor": 49
+      }
+    },
+    {
+      "name": "Claude draft: a long English previous reply does not decide the direction",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nاثممخ صخقمي",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nhello world",
+        "cursor": 259
+      }
+    },
+    {
+      "name": "Claude draft: the previous reply is never converted, whatever the layout",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nugd;l",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "latin",
+      "claude": true,
+      "expect": {
+        "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nعليكم",
+        "cursor": 253
+      }
+    },
+    {
+      "name": "Claude draft: only a previous reply and no reply text yet",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\n",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "latin",
+      "claude": true,
+      "expect": {
+        "reject": "nothingToConvert"
+      }
+    },
+    {
+      "name": "Claude draft: separator with Windows line endings",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\r\n# The build failed because the configuration file is missing.\r\n#\r\n# Run the setup command again and check the output.\r\n# ─── Write your reply below this line ──────────────────────────\r\nاثممخ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "# ─── Claude's last response (for reference; removed on save) ───\r\n# The build failed because the configuration file is missing.\r\n#\r\n# Run the setup command again and check the output.\r\n# ─── Write your reply below this line ──────────────────────────\r\nhello",
+        "cursor": 258
+      }
+    },
+    {
+      "name": "without the Claude rule the same comment block is ordinary text",
+      "arabicLayout": "arabic-pc",
+      "text": "# note\nاثممخ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "arabic",
+      "claude": false,
+      "expect": {
+        "text": "# note\nhello",
+        "cursor": 12
+      }
+    }
+  ]
+}
