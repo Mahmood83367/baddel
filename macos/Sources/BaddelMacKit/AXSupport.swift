@@ -107,13 +107,19 @@ public enum WebAccessibility {
             return .manual
         }
         guard let bundleURL, isChromiumBased(bundleURL: bundleURL) else { return .notApplicable }
-        if (AX.copy(application, "AXEnhancedUserInterface") as? Bool) != true,
-           !AX.set(application, "AXEnhancedUserInterface", kCFBooleanTrue) {
-            return .notApplicable
+        let alreadyOn = (AX.copy(application, "AXEnhancedUserInterface") as? Bool) == true
+        if !alreadyOn {
+            // The result of the call is not reliable: the ChatGPT app answers
+            // "not implemented" and switches its tree on all the same. What
+            // the attribute reads afterwards is.
+            AX.set(application, "AXEnhancedUserInterface", kCFBooleanTrue)
+            guard (AX.copy(application, "AXEnhancedUserInterface") as? Bool) == true else { return .notApplicable }
+            // Only what Baddel switched on is switched off again later.
+            enhancedSince[processID] = Date()
         }
         asked[processID] = .enhanced
-        enhancedSince[processID] = Date()
-        return .enhanced
+        // Already on (set by another tool, or earlier): there is nothing to wait for.
+        return alreadyOn ? .alreadyAsked : .enhanced
     }
 
     /// Marks an app Baddel set `AXEnhancedUserInterface` on as still in use.

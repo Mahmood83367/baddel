@@ -70,7 +70,20 @@ public final class AXField: EditableField {
 
     public func readText() throws -> String {
         guard !isSecure, let text = AX.string(element, kAXValueAttribute) else { throw Rejection.readFailed }
-        return text
+        // An empty web editor can report its placeholder ("Ask anything") as
+        // its value. That is not text the user typed.
+        return showsPlaceholder(text) ? "" : text
+    }
+
+    /// Whether `text` is the element's placeholder rather than content: either
+    /// it equals `AXPlaceholderValue`, or the editor marks its only child as
+    /// the placeholder (ProseMirror, used by the ChatGPT message box).
+    private func showsPlaceholder(_ text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        if AX.string(element, kAXPlaceholderValueAttribute) == text { return true }
+        guard let children = AX.copy(element, kAXChildrenAttribute) as? [AXUIElement], children.count == 1,
+              let classes = AX.copy(children[0], "AXDOMClassList") as? [String] else { return false }
+        return classes.contains("placeholder") || classes.contains("is-empty")
     }
 
     public func readSelection() throws -> UTF16Range {

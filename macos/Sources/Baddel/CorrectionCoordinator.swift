@@ -80,8 +80,16 @@ final class CorrectionCoordinator {
     // MARK: - Correction
 
     private func run(_ mode: CorrectionEngine.Mode) {
-        let captured = capturedField
+        var captured = capturedField
         capturedField = nil
+        if captured == nil, lastCaptureReport.wake != nil, lastCaptureReport.wake != .notApplicable {
+            // The app was only just asked for its accessibility tree and had not
+            // finished when the shortcut was pressed. It has had the length of
+            // the double-press window since; look once more.
+            captured = focus.focusedField()
+            lastCaptureReport.waitedMs += focus.lastReport.waitedMs
+            lastCaptureReport.foundElement = focus.lastReport.foundElement
+        }
         hud.hide(notify: false)
         forgetUndo()
 
@@ -138,7 +146,7 @@ final class CorrectionCoordinator {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.restoreAfter, execute: work)
     }
 
-    private static let restoreAfter: TimeInterval = 120
+    private static let restoreAfter: TimeInterval = 600
     private var restoreTimer: DispatchWorkItem?
     private var lastCaptureReport = AXFocusProvider.Report()
 

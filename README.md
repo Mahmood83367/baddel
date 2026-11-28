@@ -35,6 +35,8 @@ Choose the package for your platform from the download page. Each release lists 
 
 If upgrading from an older preview leaves you with a stale Accessibility entry, select Baddel in the **Accessibility** list, press **−**, then add and allow the copy in **Applications**. In `0.2.1`, the permission window also has a **Remove Old Entry…** button. macOS warns when opening the current preview because it has no Apple notarization. Verify the published checksum and follow Apple's instructions if you choose to open it. [Apple's instructions](https://support.apple.com/en-us/102445)
 
+In Claude, ChatGPT and other Chromium-based apps, the published `0.2.0` can answer "This field isn't supported" after a restart, because those apps describe their text fields only when asked. `0.2.1` asks on the first press, which can take about a second, and its messages say why a field was refused. [Details](docs/MACOS.md#claude-chatgpt-and-other-web-based-apps)
+
 Version `0.2.1` adds **Open Baddel at login** in Settings. Turn it on or off there or under **System Settings → General → Login Items**. [macOS guide](docs/MACOS.md)
 
 ### Windows
