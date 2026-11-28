@@ -69,6 +69,15 @@ shortcut() {  # count
   sleep 1.2
 }
 layout() { "$BADDEL" --xkb-group "$1" >/dev/null; sleep 0.3; }   # 0 = us, 1 = ara
+# The shortcut by key code (Control_L, Alt_L, space), for use while the Arabic
+# layout is active: naming keys would make xdotool switch the layout back.
+shortcut_keys() {  # count
+  for i in $(seq 1 "$1"); do
+    [ "$i" -gt 1 ] && sleep 0.05
+    xdotool keydown 37 keydown 64 key 65 keyup 64 keyup 37
+  done
+  sleep 1.2
+}
 # Presses physical keys by key code, so the active layout decides what is typed,
 # exactly as on a keyboard. (xdotool type would pick the layout itself.)
 press_keys() {
@@ -133,13 +142,15 @@ for TERMINAL in "$@"; do
 
   # The same physical keys with the Arabic layout active: what a user types
   # when the layout is wrong. The shortcut itself is pressed under that layout.
-  layout 1; clear_line; press_keys 'git status'
+  # The buffer is read back with the English layout, because the check's own
+  # read-back key is a Control combination.
+  clear_line; layout 1; press_keys 'git status'; layout 0
   check "$TERMINAL: the Arabic layout really typed Arabic" "$(buffer)" 'لهف سفشفعس'
-  shortcut 1
+  layout 1; shortcut_keys 1; layout 0
   check "$TERMINAL: Arabic layout, one press corrects the last word" "$(buffer)" 'لهف status'
-  clear_line; press_keys 'git status'; shortcut 2
+  clear_line; layout 1; press_keys 'git status'; shortcut_keys 2; layout 0
   check "$TERMINAL: Arabic layout, two presses correct the whole line" "$(buffer)" 'git status'
-  layout 0; clear_line
+  clear_line
   check "$TERMINAL: no command line was run" "$(grep -c p "$WORK/prompts")" 1
   stop_app
   kill "$TERMINAL_PID" 2>/dev/null; pkill -f "rcfile $WORK/rc" 2>/dev/null; TERMINAL_PID=""
