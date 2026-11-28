@@ -5,6 +5,36 @@ means the check produced the expected text or the expected refusal; nothing
 here is inferred. The first part covers what 0.2.0 added; the sections after
 it are the 0.1.0 record, which still applies.
 
+## Added in 0.2.2
+
+### Developer ID signing of the macOS app and installer
+
+Done on the release Mac (macOS 26.5.2) from commit `331d740`, with the
+identities in the login keychain used in place by `codesign` and
+`productbuild`. No key was exported and no keychain prompt appeared.
+
+| Check | Result |
+|---|---|
+| `security find-identity` in the build shell lists Developer ID Application and Developer ID Installer for HEALTH 360 AI LTD (7NGNGSXQK5) as valid | Passed |
+| `Baddel.app` signed with Developer ID Application, hardened runtime, secure timestamp; `codesign --verify --deep --strict` | Passed |
+| The app is universal (x86_64 and arm64), version 0.2.2, bundle identifier `app.baddel.Baddel`, no entitlements | Passed |
+| Installer package signed with Developer ID Installer, trusted timestamp, chain to Apple Root CA (`pkgutil --check-signature`) | Passed |
+| The package still has no scripts, is not relocatable, installs `/Applications/Baddel.app`, and asks Installer to close Baddel by bundle identifier | Passed |
+| The app inside the package is byte-identical to the signed build, its signature verifies, and its command-line modes run | Passed |
+| `installer -volinfo` and `-dominfo`: installable on this volume, system domain | Passed |
+| Gatekeeper installer assessment before notarization | Rejected as "Unnotarized Developer ID", as expected |
+
+These checks were made on a build from the pull-request branch. The published
+0.2.2 installer is built again, signed and notarized from the tagged commit on
+`main`; Apple's answer, the stapled ticket, Gatekeeper's installer assessment
+and the final SHA-256 are stated in the 0.2.2 release notes.
+
+Not done:
+
+- **Installing it on the release Mac.** That needs an administrator password.
+  The install, upgrade, Open at Login and uninstall path is exercised in CI
+  with the unsigned build of the same package.
+
 ## Added in 0.2.1
 
 ### Linux: exact text in fields, installing, Start at login

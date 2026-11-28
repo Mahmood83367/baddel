@@ -65,8 +65,8 @@ credential):
 | Variable | What it names | Status on the release machine |
 |---|---|---|
 | `BADDEL_SIGN_IDENTITY` | Developer ID **Application** identity, signs the app | Present (Health360 team) |
-| `BADDEL_INSTALLER_IDENTITY` | Developer ID **Installer** identity, signs the package | **Missing** |
-| `BADDEL_NOTARY_PROFILE` | `notarytool` keychain profile for the same team | **Not configured** |
+| `BADDEL_INSTALLER_IDENTITY` | Developer ID **Installer** identity, signs the package | Present (same team), since 0.2.2 |
+| `BADDEL_NOTARY_PROFILE` | `notarytool` keychain profile for the same team | Present (`baddel-notary`), since 0.2.2 |
 
 A signing identity is not a notarization credential; the profile is separate
 and is created once with `xcrun notarytool store-credentials`.
@@ -81,6 +81,17 @@ cd macos
 BADDEL_SIGN_IDENTITY="Developer ID Application: …" ./scripts/package-release.sh
 BADDEL_INSTALLER_IDENTITY="Developer ID Installer: …" BADDEL_NOTARY_PROFILE="…" ./scripts/package-pkg.sh
 ```
+
+If the notarytool profile is set up after the package was built and checked,
+notarize that same file instead of rebuilding it:
+
+```bash
+BADDEL_NOTARY_PROFILE="…" macos/scripts/notarize-pkg.sh dist/Baddel-<version>-macos-universal-TEST-ONLY-not-notarized.pkg
+```
+
+It submits the package, waits for Apple's answer, staples and validates the
+ticket, runs Gatekeeper's installer assessment, and only then writes
+`Baddel-<version>-macos-universal.pkg` and its `.sha256`.
 
 When a release is signed with the Health360 team's identity, say so in the
 release notes, and say that a later change of signing team would require
