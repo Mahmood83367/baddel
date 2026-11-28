@@ -74,14 +74,16 @@ public enum WebAccessibility {
     private static var asked: [pid_t: Wake] = [:]
     private static var enhancedSince: [pid_t: Date] = [:]
 
-    /// Whether the app's bundle contains Chromium's renderer helper, which
-    /// every Chromium embedder ships (Electron, Chrome, Edge, CEF and the
-    /// ChatGPT app's own framework).
+    /// Whether the app's bundle contains Chromium's renderer helper app, which
+    /// Chromium embedders ship (Electron, Chrome, Edge and the ChatGPT app's
+    /// own framework).
     public static func isChromiumBased(bundleURL: URL) -> Bool {
         let fileManager = FileManager.default
         let frameworks = bundleURL.appendingPathComponent("Contents/Frameworks")
         guard let entries = try? fileManager.contentsOfDirectory(atPath: frameworks.path) else { return false }
-        func isRendererHelper(_ name: String) -> Bool { name.hasSuffix("Helper (Renderer).app") }
+        // "Name Helper (Renderer).app" in Electron and Chrome; the ChatGPT app
+        // names its helpers "Codex (Renderer).app".
+        func isRendererHelper(_ name: String) -> Bool { name.contains(" (") && name.hasSuffix("Renderer).app") }
         if entries.contains(where: isRendererHelper) { return true }
         for entry in entries where entry.hasSuffix(".framework") {
             for helpers in ["Helpers", "Versions/A/Helpers", "Versions/Current/Helpers"] {

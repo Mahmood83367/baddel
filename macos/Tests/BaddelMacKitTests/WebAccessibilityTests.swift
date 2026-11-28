@@ -35,6 +35,10 @@ final class WebAccessibilityTests: XCTestCase {
         let embedded = try bundle("Embedded.app", containing: [
             "Contents/Frameworks/Sample Framework.framework/Helpers/Sample Helper (Renderer).app",
         ])
+        let renamed = try bundle("Renamed.app", containing: [
+            "Contents/Frameworks/Sample Framework.framework/Helpers/Sample (Renderer).app",
+        ])
+        XCTAssertTrue(WebAccessibility.isChromiumBased(bundleURL: renamed))
         let native = try bundle("Native.app", containing: [
             "Contents/Frameworks/Sparkle.framework/Versions/A/Resources",
             "Contents/Frameworks/Sample Helper.app",
