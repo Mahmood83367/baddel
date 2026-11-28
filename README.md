@@ -25,25 +25,27 @@ Baddel skips password fields and fields it cannot edit safely. [Tested environme
 
 ## Download and install
 
-Choose the package for your platform from the download page. Each release lists its signing status and SHA-256 checksum. The current public preview is `0.2.0`. The `0.2.1` macOS installer is awaiting Apple signing and notarization for public distribution. [Download page](https://mahmoood.com/baddel/) · [Current release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0)
+Choose the package for your platform from the download page. The current release is `0.2.1`, for macOS, Windows and Linux. Each release lists its signing status and SHA-256 checksums: the macOS app is ad-hoc signed and not notarized by Apple, and the Windows app is not code-signed, so both systems warn before the first start. A signed, notarized macOS build will follow as a later, higher version. [Download page](https://mahmoood.com/baddel/) · [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.1)
 
 ### macOS
 
-1. Extract the `0.2.0` archive and move `Baddel.app` to **Applications**. When a release offers a signed, notarized `.pkg`, open it to install Baddel in the same location.
+1. Extract the macOS ZIP and move `Baddel.app` to **Applications**. Run it from there: a copy started from **Downloads** is run by macOS from a temporary location, and its Accessibility permission does not stick.
 2. Open Baddel from **Applications**. Its icon appears in the menu bar.
 3. Enable Baddel in **System Settings → Privacy & Security → Accessibility**. Baddel needs this permission to edit the focused field.
 
-If upgrading from an older preview leaves you with a stale Accessibility entry, select Baddel in the **Accessibility** list, press **−**, then add and allow the copy in **Applications**. In `0.2.1`, the permission window also has a **Remove Old Entry…** button. macOS warns when opening the current preview because it has no Apple notarization. Verify the published checksum and follow Apple's instructions if you choose to open it. [Apple's instructions](https://support.apple.com/en-us/102445)
+If upgrading from an older preview leaves you with a stale Accessibility entry, select Baddel in the **Accessibility** list, press **−**, then add and allow the copy in **Applications**. The permission window also has a **Remove Old Entry…** button. macOS warns when opening Baddel because this release has no Apple notarization. Verify the published checksum and follow Apple's instructions if you choose to open it. [Apple's instructions](https://support.apple.com/en-us/102445)
 
-Version `0.2.1` adds **Open Baddel at login** in Settings. Turn it on or off there or under **System Settings → General → Login Items**. [macOS guide](docs/MACOS.md)
+In Claude, ChatGPT and other Chromium-based apps, the first press can take about a second: those apps describe their text fields only when asked, and Baddel asks then. If a field is refused, the message says why. (Version `0.2.0` answered "This field isn't supported" there after a restart.) [Details](docs/MACOS.md#claude-chatgpt-and-other-web-based-apps)
+
+**Open Baddel at login** is in Settings. It works for the copy in **Applications**. Turn it on or off there or under **System Settings → General → Login Items**. [macOS guide](docs/MACOS.md)
 
 ### Windows
 
-Extract the whole ZIP to a permanent folder and run `Baddel.exe`. The package includes the .NET runtime. Right-click the Baddel icon by the clock for Settings. SmartScreen may warn before opening the unsigned preview. [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.0)
+Extract the whole ZIP to a permanent folder and run `Baddel.exe`. The package includes the .NET runtime. Right-click the Baddel icon by the clock for Settings. The app is not code-signed, so SmartScreen may warn before it opens. [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.1)
 
 ### Linux
 
-The Linux build is a prototype for 64-bit x86. The published `0.2.0` is an archive you unpack and run; the installer below is part of `0.2.1`.
+The Linux build is a prototype for 64-bit x86, tested by automation on Ubuntu 24.04 only.
 
 **Debian, Ubuntu and derivatives:**
 
@@ -92,7 +94,7 @@ Baddel lets go of its shortcut while a terminal window is in front, so the shell
 
 On Windows use `C:\path\to\Baddel\Baddel.exe --fix-draft`, on Linux `/path/to/Baddel/baddel --fix-draft`; the path must not contain spaces. Then press **`Ctrl+G`** in Claude Code to correct the whole unsent draft, and **`Ctrl+_`** to restore it. To use Baddel's own shortcut there too, add the entry printed by `Baddel --terminal-key claude` to `~/.claude/keybindings.json`; in macOS Terminal that also needs **Use Option as Meta key**. Claude Code hands over the whole draft only, so there is no last-word mode. Image markers such as `[Image #1]` and Claude's previous reply, when Claude Code shows it in the editor, are left as they are. Long pasted text reaches Baddel as part of the draft and can be converted with it. While this is set, `Ctrl+G` no longer opens a text editor.
 
-These integrations are part of the next version (`0.2.1`); the published `0.2.0` packages do not include them. [Terminal guide, settings and limits](docs/TERMINAL.md)
+[Terminal guide, settings and limits](docs/TERMINAL.md)
 
 ## Clipboard history on macOS
 

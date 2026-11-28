@@ -54,8 +54,14 @@ public enum BaddelResources {
 public enum DiagnosticsLog {
     private static let logger = Logger(subsystem: "app.baddel", category: "correction")
 
-    public static func record(_ event: DiagnosticEvent, bundleID: String? = nil, role: String? = nil) {
-        logger.info(
-            "\(event.summary, privacy: .public) app=\(bundleID ?? "-", privacy: .public) role=\(role ?? "-", privacy: .public)")
+    /// `detail` is a short code such as `noFocusedElement` or `wake=manual`;
+    /// like everything else here it never holds text from a field. Records are
+    /// kept by the system log, so `log show --predicate 'subsystem == "app.baddel"'`
+    /// can explain a refusal afterwards.
+    public static func record(
+        _ event: DiagnosticEvent, bundleID: String? = nil, role: String? = nil, detail: String? = nil
+    ) {
+        logger.notice(
+            "\(event.summary, privacy: .public) app=\(bundleID ?? "-", privacy: .public) role=\(role ?? "-", privacy: .public) detail=\(detail ?? "-", privacy: .public)")
     }
 }
