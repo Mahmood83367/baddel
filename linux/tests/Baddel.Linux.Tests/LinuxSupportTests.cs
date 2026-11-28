@@ -7,6 +7,34 @@ namespace Baddel.Linux.Tests;
 
 public class LinuxSupportTests
 {
+    /// <summary>
+    /// libatspi sends inserted text on as a C string. Without a terminating NUL the
+    /// application also receives whatever follows the array in memory. A .NET byte
+    /// array is padded with zero bytes up to a multiple of eight, so only text whose
+    /// UTF-8 length is a multiple of eight was exposed: every four-letter Arabic
+    /// word, for one.
+    /// </summary>
+    [Fact]
+    public void TextForNativeCallsEndsWithOneNul()
+    {
+        foreach (var text in new[] { "اريد", "اروح", "عليكم", "hello", "اريد اروح", "😀👍🏽", "cafe\u0301", "a\u200fb", "line\nline" })
+        {
+            var bytes = NativeText.NulTerminatedUtf8(text)!;
+            var utf8 = System.Text.Encoding.UTF8.GetBytes(text);
+            Assert.Equal(utf8.Length + 1, bytes.Length);
+            Assert.Equal(0, bytes[^1]);
+            Assert.Equal(utf8, bytes[..^1]);
+            Assert.DoesNotContain((byte)0, utf8);
+        }
+        // The reported words are exactly the exposed case.
+        Assert.Equal(8, System.Text.Encoding.UTF8.GetByteCount("اريد"));
+        Assert.Equal(8, System.Text.Encoding.UTF8.GetByteCount("اروح"));
+        // Text that cannot be a C string, or has no UTF-8 form, is refused instead of being cut or altered.
+        Assert.Null(NativeText.NulTerminatedUtf8("a\0b"));
+        Assert.Null(NativeText.NulTerminatedUtf8("a\ud83d"));
+        Assert.Null(NativeText.NulTerminatedUtf8("\udc00b"));
+    }
+
     [Fact]
     public void CharacterOffsetsConvertToUtf16AndBack()
     {

@@ -139,5 +139,25 @@ for target in "gtk3 entry" "gtk3 textview" "gtk4 entry" "gtk4 textview" "qt5 lin
   esac
 done
 
+# An application that appends characters to what it was sent: the correction must
+# be reported as failed and the field must hold the original again, byte for byte.
+if available gtk3; then
+  for presses in 2 1; do
+    pkill -f fixture_field.py 2>/dev/null; sleep 0.3
+    printf 'hndv hnmp' > "$WORK/in.txt"; rm -f "$WORK/out.txt"
+    python3 "$HERE/fixture_field.py" gtk3 garbling-entry "$WORK/in.txt" "$WORK/out.txt" >/dev/null 2>&1 &
+    for _ in $(seq 1 100); do [ -f "$WORK/out.txt" ] && break; sleep 0.1; done
+    sleep 0.6
+    before=$(wc -l < "$LOG")
+    for i in $(seq 1 "$presses"); do [ "$i" -gt 1 ] && sleep 0.12; "$BADDEL" --trigger; done
+    sleep 2.5
+    event=$(tail -n +$((before + 1)) "$LOG" | tail -1 | cut -d' ' -f1-3)
+    line=$(compare "a field that adds characters to the inserted text ($presses press): the original is back" "$WORK/out.txt" "$WORK/in.txt") || failures=$((failures + 1))
+    say "$line {$event}"
+    if echo "$event" | grep -q "event=Rejected"; then say "PASS a field that adds characters ($presses press): the correction is reported as failed"
+    else say "FAIL a field that adds characters ($presses press): the correction is reported as failed {$event}"; failures=$((failures + 1)); fi
+  done
+fi
+
 say "RESULT $([ "$failures" -eq 0 ] && echo pass || echo "fail ($failures)")"
 exit "$failures"

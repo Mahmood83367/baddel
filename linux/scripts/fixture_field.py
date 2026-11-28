@@ -32,11 +32,24 @@ if toolkit == "gtk3":
 
     window = Gtk.Window(title="Baddel Check Host")
     window.set_default_size(560, 160)
-    if widget == "entry":
+    if widget in ("entry", "garbling-entry"):
         field = Gtk.Entry()
         field.set_text(text)
         read = field.get_text
         field.connect("changed", lambda *_: write(read()))
+        if widget == "garbling-entry":
+            # Stands in for an application that receives more than it was sent:
+            # whenever Arabic text is inserted, three replacement characters
+            # follow it. A correction must notice and put the original back.
+            busy = []
+
+            def garble(entry, new_text, _length, _position):
+                if busy or not any("\u0600" <= c <= "\u06ff" for c in new_text):
+                    return
+                busy.append(1)
+                GLib.idle_add(lambda: (entry.insert_text("\ufffd\ufffd\ufffd", entry.get_position() + len(new_text)), busy.clear()) and False)
+
+            field.connect("insert-text", garble)
 
         def place():
             field.grab_focus()

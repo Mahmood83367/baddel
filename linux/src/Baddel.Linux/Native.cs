@@ -150,31 +150,9 @@ internal static class Atspi
     /// <summary>
     /// <paramref name="text"/> must be UTF-8 that ends with a NUL byte: libatspi
     /// sends it on as a C string. <paramref name="length"/> is the number of bytes
-    /// before that NUL. Use <see cref="NulTerminatedUtf8"/> to build it.
+    /// before that NUL. Use <see cref="NativeText.NulTerminatedUtf8"/> to build it.
     /// </summary>
     [DllImport(Lib)] internal static extern int atspi_editable_text_insert_text(IntPtr editable, int position, byte[] text, int length, IntPtr error);
-
-    /// <summary>
-    /// The text as UTF-8 followed by one NUL byte, or <c>null</c> if it cannot be
-    /// passed as a C string at all: it holds a NUL itself, or an unpaired surrogate
-    /// that has no UTF-8 form.
-    /// </summary>
-    internal static byte[]? NulTerminatedUtf8(string value)
-    {
-        if (value.Contains('\0')) return null;
-        try
-        {
-            var strict = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
-            var count = strict.GetByteCount(value);
-            var bytes = new byte[count + 1];
-            strict.GetBytes(value, 0, value.Length, bytes, 0);
-            return bytes;
-        }
-        catch (EncoderFallbackException)
-        {
-            return null;
-        }
-    }
 
     [DllImport(Lib)] internal static extern IntPtr atspi_accessible_get_role_name(IntPtr accessible, IntPtr error);
     [DllImport(Lib)] internal static extern IntPtr atspi_accessible_get_toolkit_name(IntPtr accessible, IntPtr error);
@@ -195,4 +173,30 @@ internal static class Atspi
 
     [DllImport("libglib-2.0.so.0")] internal static extern void g_free(IntPtr memory);
     [DllImport("libgobject-2.0.so.0")] internal static extern void g_object_unref(IntPtr instance);
+}
+
+/// <summary>Text prepared for native calls that expect a C string.</summary>
+public static class NativeText
+{
+    /// <summary>
+    /// The text as UTF-8 followed by one NUL byte, or <c>null</c> if it cannot be
+    /// passed as a C string at all: it holds a NUL itself, or an unpaired surrogate
+    /// that has no UTF-8 form.
+    /// </summary>
+    public static byte[]? NulTerminatedUtf8(string value)
+    {
+        if (value.Contains('\0')) return null;
+        try
+        {
+            var strict = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+            var count = strict.GetByteCount(value);
+            var bytes = new byte[count + 1];
+            strict.GetBytes(value, 0, value.Length, bytes, 0);
+            return bytes;
+        }
+        catch (EncoderFallbackException)
+        {
+            return null;
+        }
+    }
 }

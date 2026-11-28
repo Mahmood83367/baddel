@@ -175,7 +175,7 @@ public sealed class AtspiField : IEditableField
         // Everything that will be written, and what would have to be put back, is
         // checked before the first change: text that cannot be passed on intact is
         // refused while the field is still untouched.
-        if (Atspi.NulTerminatedUtf8(replacement) is null || Atspi.NulTerminatedUtf8(old) is null)
+        if (NativeText.NulTerminatedUtf8(replacement) is null || NativeText.NulTerminatedUtf8(old) is null)
         {
             throw new RejectionException(Rejection.WriteFailed);
         }
@@ -225,8 +225,8 @@ public sealed class AtspiField : IEditableField
         // UTF-8 with a terminating NUL: libatspi passes the pointer on as a C
         // string, so without the terminator whatever follows the array in memory
         // is sent to the application as well.
-        var bytes = Encoding.UTF8.GetBytes(value);
-        Atspi.atspi_editable_text_insert_text(editable, position, bytes, bytes.Length, IntPtr.Zero);
+        if (NativeText.NulTerminatedUtf8(value) is not { } bytes) return;
+        Atspi.atspi_editable_text_insert_text(editable, position, bytes, bytes.Length - 1, IntPtr.Zero);
     }
 
     private bool WaitFor(string? wanted, int timeoutMs)
