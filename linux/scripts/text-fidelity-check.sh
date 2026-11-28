@@ -38,7 +38,7 @@ printf '{ "SwitchLayout": false }' > "$BADDEL_SETTINGS_DIR/settings.json"
 "$BADDEL" >> "$LOG" 2>&1 &
 BADDEL_PID=$!
 for _ in $(seq 1 50); do grep -q "status=" "$LOG" && break; sleep 0.1; done
-say "session=$SESSION $(head -1 "$LOG" | cut -d' ' -f1-3)"
+say "session=$SESSION $(head -1 "$LOG" | cut -d' ' -f1-4)"
 cleanup() { "$BADDEL" --quit 2>/dev/null; kill "$BADDEL_PID" 2>/dev/null; pkill -f fixture_field.py 2>/dev/null; rm -rf "$WORK"; }
 trap cleanup EXIT
 

@@ -38,6 +38,14 @@ public sealed class LinuxSettings
     public bool SwitchLayout { get; set; } = true;
 
     /// <summary>
+    /// Qt and KDE applications describe their text fields only while the desktop's
+    /// accessibility switch (org.a11y.Status IsEnabled) is on. When this is true,
+    /// Baddel turns the switch on while it runs and back off when it stops, if it
+    /// was off before. Set to false to leave the switch alone.
+    /// </summary>
+    public bool EnableDesktopAccessibility { get; set; } = true;
+
+    /// <summary>
     /// "automatic" (default), "on" or "off": whether the shortcut is left to terminal
     /// windows so the shell integration can use the same key. See TerminalSharing.
     /// </summary>
@@ -403,6 +411,19 @@ public sealed class Session
             Say("status=error reason=accessibility-bus-unavailable");
             return 2;
         }
+        var accessibility = settings.EnableDesktopAccessibility ? DesktopAccessibility.TurnOn() : "left-alone";
+        try
+        {
+            return RunSession(accessibility);
+        }
+        finally
+        {
+            DesktopAccessibility.Restore();
+        }
+    }
+
+    private int RunSession(string accessibility)
+    {
         using var listener = TriggerChannel.Listen(triggers);
         if (listener is null)
         {
@@ -434,6 +455,7 @@ public sealed class Session
         // shortcut comes from the desktop (bound to `baddel --trigger`) and no
         // popup is shown; Undo is `baddel --undo`.
         Say($"status=ready session={(IsWayland ? "wayland" : display != IntPtr.Zero ? "x11" : "none")} shortcut={shortcutMode} "
+            + $"desktopAccessibility={accessibility} "
             + $"layouts={pair.Latin.Id},{pair.Arabic.Id} "
             + $"xkbGroups={string.Join("|", sessionGroups.Select(g => g.Variant.Length > 0 ? $"{g.Layout}({g.Variant})" : g.Layout))}");
 
@@ -746,5 +768,73 @@ public sealed class Session
         X11.XUnmapWindow(display, popup);
         X11.XFlush(display);
         popupVisible = false;
+    }
+}
+
+/// <summary>
+/// The desktop's accessibility switch, <c>org.a11y.Status IsEnabled</c> on the
+/// session bus. GTK 3 applications answer accessibility requests regardless of it;
+/// Qt and KDE applications only register while it is on. Screen readers turn it on
+/// the same way. Baddel changes it through <c>gdbus</c> (part of GLib's tools) and
+/// puts it back if it had been off.
+/// </summary>
+public static class DesktopAccessibility
+{
+    private static bool turnedOnHere;
+
+    private static string? Gdbus(params string[] arguments)
+    {
+        try
+        {
+            var info = new ProcessStartInfo("gdbus") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            foreach (var argument in new[] { "call", "--session", "--timeout", "2", "--dest", "org.a11y.Bus", "--object-path", "/org/a11y/bus", "--method" })
+            {
+                info.ArgumentList.Add(argument);
+            }
+            foreach (var argument in arguments) info.ArgumentList.Add(argument);
+            using var process = Process.Start(info);
+            if (process is null) return null;
+            var output = process.StandardOutput.ReadToEnd();
+            if (!process.WaitForExit(4000))
+            {
+                process.Kill();
+                return null;
+            }
+            return process.ExitCode == 0 ? output : null;
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary><c>true</c>, <c>false</c>, or <c>null</c> when the switch cannot be read.</summary>
+    public static bool? IsOn()
+    {
+        var answer = Gdbus("org.freedesktop.DBus.Properties.Get", "org.a11y.Status", "IsEnabled");
+        return answer is null ? null : answer.Contains("true", StringComparison.Ordinal);
+    }
+
+    /// <returns>A code for the status line: already-on, turned-on, or unavailable.</returns>
+    public static string TurnOn()
+    {
+        switch (IsOn())
+        {
+            case true: return "already-on";
+            case null: return "unavailable";
+        }
+        if (Gdbus("org.freedesktop.DBus.Properties.Set", "org.a11y.Status", "IsEnabled", "<true>") is null || IsOn() != true) return "unavailable";
+        turnedOnHere = true;
+        // Also when the process is asked to stop from outside.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Restore();
+        return "turned-on";
+    }
+
+    /// <summary>Turns the switch off again, only if this process turned it on.</summary>
+    public static void Restore()
+    {
+        if (!turnedOnHere) return;
+        turnedOnHere = false;
+        Gdbus("org.freedesktop.DBus.Properties.Set", "org.a11y.Status", "IsEnabled", "<false>");
     }
 }

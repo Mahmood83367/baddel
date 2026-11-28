@@ -66,6 +66,7 @@ internal static class Program
                 // click into the field in question.
                 if (int.TryParse(args.ElementAtOrDefault(1), out var wait) && wait is > 0 and <= 60) System.Threading.Thread.Sleep(wait * 1000);
                 Console.WriteLine($"session={(Session.IsWayland ? "wayland" : string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")) ? "none" : "x11")}");
+                Console.WriteLine($"desktopAccessibilitySwitch={(DesktopAccessibility.IsOn() switch { true => "on", false => "off (Qt and KDE applications stay invisible until it is on; a running Baddel turns it on)", null => "unreadable" })}");
                 foreach (var line in AtspiFocus.Describe()) Console.WriteLine(line);
                 return 0;
             case "--check-updates":
