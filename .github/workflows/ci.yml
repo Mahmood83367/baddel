@@ -238,7 +238,7 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q xvfb xdotool openbox dbus-x11 at-spi2-core libatspi2.0-0 libatspi2.0-dev \
             libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas \
-            xterm gnome-terminal xfce4-terminal x11-utils python3-xlib python3-pyqt5 gir1.2-gtk-4.0
+            xterm gnome-terminal xfce4-terminal x11-utils python3-xlib python3-pyqt5 gir1.2-gtk-4.0 dex desktop-file-utils
       - name: Test core on Linux
         run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
       - name: Check AT-SPI constants against the installed header
@@ -276,6 +276,19 @@ jobs:
         run: |
           RESULTS_FILE="$PWD/dist/linux-x11-smoke.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
             linux/scripts/x11-smoke.sh dist/check/Baddel-*-linux-x64-prototype/baddel
+      # A Debian package from the same archive, and a second one with a higher
+      # version that exists only to test upgrading.
+      - name: Build the Debian package
+        run: |
+          linux/scripts/package-deb.sh
+          BADDEL_DEB_VERSION="$(cat VERSION)+upgradecheck" linux/scripts/package-deb.sh
+          sha256sum -c dist/baddel_$(cat VERSION)_amd64.deb.sha256 --ignore-missing || (cd dist && sha256sum -c baddel_$(cat ../VERSION)_amd64.deb.sha256)
+          dpkg-deb --info dist/baddel_$(cat VERSION)_amd64.deb
+      - name: Install, upgrade, Start at login and removal on this throwaway runner
+        run: |
+          RESULTS_FILE="$PWD/dist/linux-install-checks.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
+            linux/scripts/install-check.sh dist/baddel_$(cat VERSION)_amd64.deb "dist/baddel_$(cat VERSION)+upgradecheck_amd64.deb" \
+            dist/Baddel-*-linux-x64-prototype.tar.gz 2>/dev/null
       # Every byte of the result, and of the text Undo puts back, in GTK and Qt fields.
       - name: Exact text in GTK and Qt fields
         run: |
@@ -287,6 +300,9 @@ jobs:
           path: |
             dist/Baddel-*-linux-x64-prototype.tar.gz
             dist/Baddel-*-linux-x64-prototype.tar.gz.sha256
+            dist/baddel_*_amd64.deb
+            dist/baddel_*_amd64.deb.sha256
+            !dist/baddel_*upgradecheck*
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
@@ -296,4 +312,5 @@ jobs:
             dist/linux-x11-smoke.txt
             dist/linux-terminal-windows.txt
             dist/linux-text-fidelity.txt
+            dist/linux-install-checks.txt
           if-no-files-found: ignore

@@ -7,6 +7,50 @@ namespace Baddel.Linux.Tests;
 
 public class LinuxSupportTests
 {
+    [Fact]
+    public void StartAtLoginWritesOnlyItsOwnFile()
+    {
+        var directory = Directory.CreateTempSubdirectory("baddel-autostart-test");
+        try
+        {
+            var file = Path.Combine(directory.FullName, "autostart", Autostart.FileName);
+            var program = Path.Combine(directory.FullName, "baddel");
+            File.WriteAllText(program, "");
+
+            Assert.Equal(Autostart.State.Off, Autostart.Read(file));
+            Assert.Null(Autostart.Disable(file));
+            Assert.False(File.Exists(file));
+
+            Assert.Null(Autostart.Enable(program, file));
+            Assert.Equal(Autostart.State.On, Autostart.Read(file));
+            var entry = File.ReadAllText(file);
+            Assert.Contains("[Desktop Entry]\nType=Application\n", entry);
+            Assert.Contains($"Exec={program}\n", entry);
+            Assert.Contains($"TryExec={program}\n", entry);
+
+            // Enabling twice is harmless, and a removed program is reported, not started.
+            Assert.Null(Autostart.Enable(program, file));
+            File.Delete(program);
+            Assert.Equal(Autostart.State.Stale, Autostart.Read(file));
+            Assert.Null(Autostart.Disable(file));
+            Assert.False(File.Exists(file));
+
+            // A file somebody else put there is neither replaced nor removed.
+            File.WriteAllText(file, "[Desktop Entry]\nType=Application\nExec=/usr/bin/true\n");
+            Assert.Equal(Autostart.State.Foreign, Autostart.Read(file));
+            Assert.Equal("anotherFileIsInTheWay", Autostart.Enable(program, file));
+            Assert.Equal("notBaddelsFile", Autostart.Disable(file));
+            Assert.Equal("[Desktop Entry]\nType=Application\nExec=/usr/bin/true\n", File.ReadAllText(file));
+
+            // A path with a space is quoted for Exec and left plain for TryExec.
+            Assert.Contains("Exec=\"/opt/my apps/baddel\"\nTryExec=/opt/my apps/baddel\n", Autostart.Entry("/opt/my apps/baddel"));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
     /// <summary>
     /// libatspi sends inserted text on as a C string. Without a terminating NUL the
     /// application also receives whatever follows the array in memory. A .NET byte

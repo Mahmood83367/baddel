@@ -41,6 +41,7 @@ internal static class Program
                     + "baddel --undo          undo the last correction\n"
                     + "baddel --quit          stop the running Baddel\n"
                     + "baddel --self-check    report what this session supports\n"
+                    + "baddel --autostart status|enable|disable   start Baddel at login (off unless you enable it)\n"
                     + "baddel --focus-report [seconds]   what the accessibility bus shows as focused (no text)\n"
                     + "baddel --check-updates [stable|preview]   look for a newer release (installs nothing)\n"
                     + "baddel --fix-text …    correct a shell command line (used by shell/baddel.bash)\n"
@@ -59,6 +60,9 @@ internal static class Program
                 return DumpLayout(args.ElementAtOrDefault(1) ?? "us", args.ElementAtOrDefault(2));
             case "--self-check":
                 return SelfCheck();
+            case "--autostart":
+                // Start Baddel at login: status, enable or disable. See Autostart.
+                return Autostart.RunCommand(args.ElementAtOrDefault(1));
             case "--focus-report":
                 // What Baddel sees through the accessibility bus right now: toolkits,
                 // windows and focused elements with their roles. No text is read.

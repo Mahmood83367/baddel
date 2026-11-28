@@ -27,6 +27,9 @@ rm -rf dist/linux-publish
 mkdir -p "$STAGE/shell"
 cp shared/shell/baddel.bash "$STAGE/shell/baddel.bash"
 cp LICENSE "$STAGE/LICENSE"
+# Per-user install and removal for distributions without a package.
+cp linux/install.sh linux/uninstall.sh "$STAGE/"
+chmod 755 "$STAGE/install.sh" "$STAGE/uninstall.sh"
 
 cat > "$STAGE/README.txt" <<TXT
 Baddel $VERSION for Linux (x64) - PROTOTYPE
@@ -46,6 +49,15 @@ Prerequisites
     expose editable text through it.
   - For layout switching: the English and Arabic layouts configured as XKB
     groups of the session, for example:  setxkbmap -layout us,ara
+
+Install  (optional; Baddel also runs straight from this folder)
+  Debian, Ubuntu and derivatives: use the .deb from the same release instead:
+    sudo apt install ./baddel_${VERSION}_amd64.deb     remove: sudo apt remove baddel
+  Any distribution, for your user only, without root:
+    ./install.sh        installs to ~/.local/opt/baddel and links ~/.local/bin/baddel
+    ~/.local/opt/baddel/uninstall.sh      removes it; your settings are kept
+  Start at login (off unless you turn it on):
+    baddel --autostart enable | disable | status
 
 Run
   ./baddel               run in the foreground (Ctrl+C or: ./baddel --quit)
@@ -83,8 +95,16 @@ Settings  (~/.config/baddel/settings.json, all optional)
     "LatinXkbLayout": "us",   "LatinXkbVariant": null,
     "ArabicXkbLayout": "ara", "ArabicXkbVariant": null,
     "DoublePressMs": 300,
-    "SwitchLayout": true
+    "SwitchLayout": true,
+    "EnableDesktopAccessibility": true
   }
+  Qt and KDE applications only describe their text fields while the desktop's
+  accessibility switch is on. Baddel turns it on when it starts, if it is off,
+  and never turns it off (it lasts until you log out). Set
+  "EnableDesktopAccessibility" to false to leave it alone; Baddel then only
+  works in GTK applications unless something else turns the switch on.
+  ./baddel --focus-report 3   says what Baddel can see in the field you click
+  into during the three seconds (roles and reasons, never text).
   A variant of null means "use the variant of this session's group with that
   layout"; "" means the layout's default variant; any other value, such as
   "digits", is that exact variant. The key tables are read from the XKB data
@@ -110,7 +130,7 @@ Redistribution
   and the license notice in LICENSE.
 TXT
 
-(cd "$STAGE" && sha256sum baddel shell/baddel.bash LICENSE README.txt > SHA256SUMS.txt)
+(cd "$STAGE" && sha256sum baddel shell/baddel.bash install.sh uninstall.sh LICENSE README.txt > SHA256SUMS.txt)
 tar -C dist --owner=0 --group=0 -czf "dist/$NAME.tar.gz" "$NAME"
 rm -rf "$STAGE"
 (cd dist && sha256sum "$NAME.tar.gz" > "$NAME.tar.gz.sha256")
