@@ -97,7 +97,11 @@ public sealed class AtspiField : IEditableField
         if (pointer == IntPtr.Zero) throw new RejectionException(Rejection.ReadFailed);
         try
         {
-            return Marshal.PtrToStringUTF8(pointer) ?? string.Empty;
+            // Decoded strictly. A lenient decoder would turn bytes that are not
+            // UTF-8 into U+FFFD, and a correction would then write those
+            // replacement characters over the application's real content.
+            if (NativeText.StrictUtf8(pointer) is not { } content) throw new RejectionException(Rejection.ReadFailed);
+            return content;
         }
         finally
         {

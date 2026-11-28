@@ -79,6 +79,22 @@ public class LinuxSupportTests
         Assert.Null(NativeText.NulTerminatedUtf8("\udc00b"));
     }
 
+    /// <summary>
+    /// Text read from an application is decoded strictly: bytes that are not UTF-8
+    /// are refused rather than turned into U+FFFD. A U+FFFD that really is in the
+    /// text is ordinary, valid text and is kept.
+    /// </summary>
+    [Fact]
+    public void TextFromAnApplicationIsDecodedStrictly()
+    {
+        Assert.Equal("اريد اروح", NativeText.StrictUtf8(System.Text.Encoding.UTF8.GetBytes("اريد اروح")));
+        Assert.Equal("a\ufffdb", NativeText.StrictUtf8(new byte[] { 0x61, 0xEF, 0xBF, 0xBD, 0x62 }));
+        Assert.Equal("😀", NativeText.StrictUtf8(new byte[] { 0xF0, 0x9F, 0x98, 0x80 }));
+        Assert.Null(NativeText.StrictUtf8(new byte[] { 0x61, 0xFF, 0x62 }));
+        Assert.Null(NativeText.StrictUtf8(new byte[] { 0xD8, 0xA7, 0xD8 }));        // cut in the middle of a letter
+        Assert.Null(NativeText.StrictUtf8(new byte[] { 0xED, 0xA0, 0x80 }));        // an encoded surrogate
+    }
+
     [Fact]
     public void CharacterOffsetsConvertToUtf16AndBack()
     {

@@ -179,6 +179,32 @@ internal static class Atspi
 public static class NativeText
 {
     /// <summary>
+    /// The NUL-terminated string at <paramref name="pointer"/>, or <c>null</c> if its
+    /// bytes are not valid UTF-8.
+    /// </summary>
+    public static string? StrictUtf8(IntPtr pointer)
+    {
+        if (pointer == IntPtr.Zero) return null;
+        var length = 0;
+        while (Marshal.ReadByte(pointer, length) != 0) length++;
+        var bytes = new byte[length];
+        Marshal.Copy(pointer, bytes, 0, length);
+        return StrictUtf8(bytes);
+    }
+
+    public static string? StrictUtf8(byte[] bytes)
+    {
+        try
+        {
+            return new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true).GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
     /// The text as UTF-8 followed by one NUL byte, or <c>null</c> if it cannot be
     /// passed as a C string at all: it holds a NUL itself, or an unpaired surrogate
     /// that has no UTF-8 form.

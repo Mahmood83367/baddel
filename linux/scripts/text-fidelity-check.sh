@@ -117,7 +117,9 @@ visible() {  # toolkit widget
   "$BADDEL" --focus-report > "$WORK/report.txt"
   grep -q "focused role=" "$WORK/report.txt"
 }
-for target in "gtk3 entry" "gtk3 textview" "gtk4 entry" "gtk4 textview" "qt5 lineedit" "qt5 plaintextedit" "qt5 textedit"; do
+TARGETS="${BADDEL_FIDELITY_TARGETS:-gtk3 entry;gtk3 textview;gtk4 entry;gtk4 textview;qt5 lineedit;qt5 plaintextedit;qt5 textedit}"
+IFS=';' read -r -a target_list <<< "$TARGETS"
+for target in "${target_list[@]}"; do
   set -- $target
   available "$1" || { say "SKIP $target: toolkit bindings not installed"; continue; }
   if ! visible "$1" "$2"; then

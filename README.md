@@ -43,7 +43,27 @@ Extract the whole ZIP to a permanent folder and run `Baddel.exe`. The package in
 
 ### Linux
 
-Extract the `x64` prototype and run `./baddel` from its folder in an X11 session. Automated testing used Ubuntu 24.04 and a GTK text field; the prototype has not been run on a real desktop yet. The limited Wayland path needs a desktop-configured shortcut and manual layout switching, and is untested. [Linux dependencies and setup](linux/README.md)
+The Linux build is a prototype for 64-bit x86. The published `0.2.0` is an archive you unpack and run; the installer below is part of `0.2.1`.
+
+**Debian, Ubuntu and derivatives:**
+
+```bash
+sudo apt install ./baddel_0.2.1_amd64.deb
+```
+
+**Any other distribution, for your user only, without root:** unpack the `x64` archive and run its installer.
+
+```bash
+./install.sh
+```
+
+Then:
+
+1. Start Baddel from the application menu, or run `baddel`. On X11 it holds the shortcut `Ctrl+Alt+Space` itself. On Wayland it cannot: bind a shortcut in your desktop's keyboard settings to `baddel --trigger`, and switch the layout yourself.
+2. To start it at every login, run `baddel --autostart enable`. It is off until you do; `baddel --autostart disable` turns it off again.
+3. To remove Baddel: `sudo apt remove baddel`, or `~/.local/opt/baddel/uninstall.sh` for the per-user install. Your settings in `~/.config/baddel` are kept either way.
+
+Baddel edits fields through the desktop's accessibility service. GTK 3 and GTK 4 fields are tested. Qt and KDE applications describe their fields only while the desktop's accessibility switch is on, so Baddel turns that switch on when it starts and leaves it on until you log out; set `"EnableDesktopAccessibility": false` in `~/.config/baddel/settings.json` to prevent that. If a field is refused, `baddel --focus-report 3` says what Baddel can see in the field you click into. Testing so far is automated, on Ubuntu 24.04; no real desktop session has been tried. [Linux guide, limits and what was tested](linux/README.md)
 
 ## In a terminal
 

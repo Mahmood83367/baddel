@@ -294,6 +294,22 @@ jobs:
         run: |
           RESULTS_FILE="$PWD/dist/linux-text-fidelity.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
             linux/scripts/text-fidelity-check.sh dist/check/Baddel-*-linux-x64-prototype/baddel 2>/dev/null
+      # The same check inside a Wayland session (headless Weston), where Baddel
+      # has no shortcut of its own and is driven by `baddel --trigger`. Recorded,
+      # not required: a headless compositor has no keyboard, so whether a field
+      # counts as focused there is itself part of what is being found out.
+      - name: Exact text in GTK fields in a Wayland session (informational)
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y -q weston >/dev/null
+          export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+          dbus-run-session -- bash -c '
+            weston --backend=headless --socket=baddel-check --idle-time=0 >/dev/null 2>&1 &
+            sleep 3
+            env -u DISPLAY WAYLAND_DISPLAY=baddel-check XDG_SESSION_TYPE=wayland GDK_BACKEND=wayland \
+              BADDEL_FIDELITY_SESSION=wayland BADDEL_FIDELITY_TARGETS="gtk3 entry;gtk4 entry;gtk4 textview" \
+              RESULTS_FILE="$PWD/dist/linux-text-fidelity-wayland.txt" \
+              linux/scripts/text-fidelity-check.sh dist/check/Baddel-*-linux-x64-prototype/baddel 2>/dev/null'
       - uses: actions/upload-artifact@v4
         with:
           name: baddel-linux-prototype
@@ -313,4 +329,5 @@ jobs:
             dist/linux-terminal-windows.txt
             dist/linux-text-fidelity.txt
             dist/linux-install-checks.txt
+            dist/linux-text-fidelity-wayland.txt
           if-no-files-found: ignore
