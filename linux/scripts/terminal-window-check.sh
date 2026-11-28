@@ -69,17 +69,34 @@ shortcut() {  # count
   sleep 1.2
 }
 layout() { "$BADDEL" --xkb-group "$1" >/dev/null; sleep 0.3; }   # 0 = us, 1 = ara
+# Raw key codes through XTEST, so the active layout alone decides what is typed,
+# exactly as on a keyboard. (xdotool picks a layout itself and switches to it.)
+# "+N" holds key code N down, "-N" releases it, "N" presses and releases it.
+cat > "$WORK/keys.py" <<'PY'
+import sys, time
+from Xlib import X, display
+from Xlib.ext import xtest
+d = display.Display()
+for word in sys.argv[1:]:
+    code = int(word.lstrip("+-"))
+    if not word.startswith("-"):
+        xtest.fake_input(d, X.KeyPress, code)
+    if not word.startswith("+"):
+        xtest.fake_input(d, X.KeyRelease, code)
+    d.sync()
+    time.sleep(0.025)
+PY
+raw_keys() { python3 "$WORK/keys.py" "$@"; }
 # The shortcut by key code (Control_L, Alt_L, space), for use while the Arabic
-# layout is active: naming keys would make xdotool switch the layout back.
+# layout is active.
 shortcut_keys() {  # count
   for i in $(seq 1 "$1"); do
     [ "$i" -gt 1 ] && sleep 0.05
-    xdotool keydown 37 keydown 64 key 65 keyup 64 keyup 37
+    raw_keys +37 +64 65 -64 -37
   done
   sleep 1.2
 }
-# Presses physical keys by key code, so the active layout decides what is typed,
-# exactly as on a keyboard. (xdotool type would pick the layout itself.)
+# Types text as the physical keys of a US keyboard, whatever layout is active.
 press_keys() {
   local text=$1 i char codes=""
   for ((i = 0; i < ${#text}; i++)); do
@@ -93,7 +110,7 @@ press_keys() {
     esac
   done
   # shellcheck disable=SC2086
-  xdotool key --delay 25 $codes
+  raw_keys $codes
   sleep 0.3
 }
 

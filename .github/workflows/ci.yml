@@ -237,7 +237,7 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q xvfb xdotool openbox dbus-x11 at-spi2-core libatspi2.0-0 libatspi2.0-dev \
             libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas \
-            xterm gnome-terminal xfce4-terminal x11-utils
+            xterm gnome-terminal xfce4-terminal x11-utils python3-xlib
       - name: Test core on Linux
         run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
       - name: Check AT-SPI constants against the installed header
@@ -269,7 +269,7 @@ jobs:
       - name: Shortcut in terminal windows, English and Arabic layouts
         run: |
           RESULTS_FILE="$PWD/dist/linux-terminal-windows.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
-            linux/scripts/terminal-window-check.sh dist/check/Baddel-*-linux-x64-prototype
+            linux/scripts/terminal-window-check.sh dist/check/Baddel-*-linux-x64-prototype 2>/dev/null
       # The smoke test runs the binary extracted from the archive that is uploaded.
       - name: X11 smoke test of the packaged binary
         run: |
