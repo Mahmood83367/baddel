@@ -342,7 +342,6 @@ def check_pwsh(args):
         import re
         version = re.findall(r"psreadline [0-9][0-9.]* powershell [0-9][0-9.]*", terminal.output.decode("utf-8", "replace"))
         print("   ", version[-1] if version else "PSReadLine version unknown")
-        before = (files.read(prompts) or "").count("p")
         global KEY
         # PSReadLine reads Ctrl+Alt as AltGr and would bind Ctrl+Alt+Space as plain
         # Space, so with the default shortcut the integration must fall back to Ctrl+T.
@@ -353,6 +352,7 @@ def check_pwsh(args):
         terminal.send("[IO.File]::WriteAllText('" + dump + ".keys', ((Get-PSReadLineKeyHandler -Bound | Where-Object Function -eq 'BaddelFix' | ForEach-Object Key) -join ','))\r", 2.0)
         report.check("the handler is bound to Ctrl+T and to nothing else (in particular not to Space)", files.read(dump + ".keys"), "Ctrl+t")
         files.remove(dump + ".keys")
+        before = (files.read(prompts) or "").count("p")
         # Twelve Shift+Left keys select the last two words.
         selection = "echo ugd;l hgsghl" + "\x1b[1;2D" * 12 + KEY
         cases = shell_cases(CTRL_Z, selection)
