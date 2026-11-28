@@ -22,7 +22,7 @@ var arguments = Array(CommandLine.arguments.dropFirst())
 while !arguments.isEmpty {
     let name = arguments.removeFirst()
     guard name.hasPrefix("--") else { fail("unexpected-argument") }
-    if ["--undo", "--tamper", "--sources", "--frontmost", "--select-only", "--compare-only", "--click-undo"].contains(name) {
+    if ["--undo", "--tamper", "--sources", "--frontmost", "--select-only", "--compare-only", "--click-undo", "--describe", "--paste"].contains(name) {
         flags.insert(name)
     } else if !arguments.isEmpty {
         options[name] = arguments.removeFirst()
@@ -46,6 +46,38 @@ if flags.contains("--sources") {
 // Puts back the input source that was active before a check.
 if let id = options["--restore-source"] {
     print("sourceRestored=\(InputSourceSwitcher(store: store).selectInputSource(id: id))")
+    exit(0)
+}
+
+// `--describe --pid N` reports, read-only, what Baddel sees as the focused
+// element of that app: codes, roles and capabilities, never text. It uses the
+// same focus provider as the app, so it also asks a Chromium-based app for its
+// accessibility tree, exactly as a shortcut press would.
+if flags.contains("--describe") {
+    guard let pid = options["--pid"].flatMap({ pid_t($0) }) else { fail("missing--pid") }
+    let app = NSRunningApplication(processIdentifier: pid)
+    let version = app?.bundleURL.flatMap { Bundle(url: $0)?.infoDictionary?["CFBundleShortVersionString"] as? String } ?? "-"
+    print("accessibilityTrusted=\(AccessibilityPermission.isGranted)")
+    print("app=\(app?.bundleIdentifier ?? "-") version=\(version) frontmost=\(app?.isActive ?? false) "
+        + "chromiumBased=\(app?.bundleURL.map(WebAccessibility.isChromiumBased) ?? false)")
+    let provider = AXFocusProvider(processID: pid)
+    provider.pasteFallback = flags.contains("--paste") ? PasteFallback() : nil
+    let field = provider.focusedField() as? AXField
+    let report = provider.lastReport
+    print("foundElement=\(report.foundElement) wake=\(report.wake?.rawValue ?? "-") waitedMs=\(report.waitedMs)")
+    guard let field else {
+        print("result=noFocusedField")
+        exit(0)
+    }
+    func settable(_ name: String) -> Bool {
+        var value: DarwinBoolean = false
+        return AXUIElementIsAttributeSettable(field.element, name as CFString, &value) == .success && value.boolValue
+    }
+    let length = (try? field.readText())?.utf16.count
+    print("role=\(field.role) subrole=\(field.subrole.isEmpty ? "-" : field.subrole) secure=\(field.isSecure) "
+        + "textLength=\(length.map(String.init) ?? "unreadable") selectionReadable=\((try? field.readSelection()) != nil)")
+    print("settable value=\(settable("AXValue")) selectedText=\(settable("AXSelectedText")) selectedTextRange=\(settable("AXSelectedTextRange"))")
+    print("result=\(field.isSecure ? "secureField" : field.unsupportedReason ?? "supported")")
     exit(0)
 }
 
