@@ -103,6 +103,31 @@ If you used the installer, this forgets its receipt (it removes no files):
 sudo pkgutil --forget app.baddel.Baddel.pkg
 ```
 
+## Claude, ChatGPT and other web-based apps
+
+Apps built on Chromium (Electron apps such as Claude, the ChatGPT app,
+browsers) do not describe their text fields to other apps until one asks. On
+the first press in such an app Baddel asks, waits up to about a second for the
+app to answer, and then corrects as usual; later presses are immediate. Before
+this, Baddel reported "This field isn't supported" there whenever nothing else
+on the Mac had already asked, which is typically the case after a restart.
+
+Asking uses the two switches Chromium provides for it. One of them
+(`AXEnhancedUserInterface`, needed by the ChatGPT app) can make some window
+management tools behave differently, so Baddel only sets it on apps it has
+identified as Chromium-based and clears it again after ten minutes without
+use. Nothing is read or changed in the app by asking.
+
+When a press is refused, the message now says which case it was: no text
+field is focused, the focused item is not a text field, the field cannot be
+edited by other apps, or the app only accepts pasted text (with a pointer to
+the paste option in Settings). The same codes go to the system log, without
+any text:
+
+```bash
+log show --last 10m --predicate 'subsystem == "app.baddel"'
+```
+
 ## What was tested
 
 See [TESTING.md](TESTING.md). In short: installing, upgrading over the 0.1.0

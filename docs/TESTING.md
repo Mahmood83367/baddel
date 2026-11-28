@@ -165,6 +165,41 @@ identity.
   "Remove Old Entry…" in the window: CI cannot grant Accessibility.
 - **Intel Macs.**
 
+### Claude and ChatGPT desktop apps (Chromium-based)
+
+Checked on macOS 26.5.2 against the running apps: Claude 6.28899.6
+(Electron 45, Chromium 156) and ChatGPT 26.1120.50957 (bundle
+`com.openai.codex`, its own Chromium framework). The report came after a
+restart, with Baddel 0.2.0 running from a translocated copy and Accessibility
+access in effect.
+
+| Observation or check | Claude | ChatGPT |
+|---|---|---|
+| Before being asked: the app names no focused element at all (error "no value"), in front or not | Observed | Observed |
+| Asking: `AXManualAccessibility` is accepted | Yes | No (unsupported) |
+| Asking: `AXEnhancedUserInterface` switches the tree on | Not needed | Yes, although the call itself answers "not implemented" |
+| After asking: the message box is an `AXTextArea` with a readable selection and a writable value | Observed | Observed |
+| With the app in front and its tree on, macOS names the focused element (here the transcript, correctly refused as "not a text field") | Not captured | Observed |
+| Guarded write test on the **empty** message box: place a fixture, correct it with `AXField.replace`, verify, convert back, restore to empty (`baddel-axcheck --composer-check`) | Passed (value strategy) | Passed (value strategy) |
+| TextEdit as a control: `AXTextArea`, value and selected text writable | Observed | |
+
+The ChatGPT box reports its placeholder as its value while empty; Baddel now
+treats that as empty text.
+
+Not verified:
+
+- A real shortcut press in either message box with the new build. That needs
+  the app in front and typing into it, which was not done on a Mac that was
+  in use; the checks above cover the focus lookup with the app in front and
+  the write path separately.
+- Relaunching either app to repeat the "before" state. Both were left
+  running; the state was observed as found after the restart.
+- How long each app takes to build its tree when first asked while in front
+  (Baddel waits up to 1.2 seconds, then looks once more after the
+  double-press window).
+- Other Chromium-based apps, and the window-tool side effect of
+  `AXEnhancedUserInterface`.
+
 ### Other
 
 The app icon appears in the macOS bundle and the Windows executable; the

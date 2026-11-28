@@ -67,6 +67,7 @@ final class CorrectionCoordinator {
     /// possible second press before touching any text.
     private func arm() {
         capturedField = focus.focusedField()
+        lastCaptureReport = focus.lastReport
         let generation = detector.generation
         let work = DispatchWorkItem { [weak self] in
             guard let self, self.detector.timeout(generation: generation) == .single else { return }
@@ -79,8 +80,16 @@ final class CorrectionCoordinator {
     // MARK: - Correction
 
     private func run(_ mode: CorrectionEngine.Mode) {
-        let captured = capturedField
+        var captured = capturedField
         capturedField = nil
+        if captured == nil, lastCaptureReport.wake != nil, lastCaptureReport.wake != .notApplicable {
+            // The app was only just asked for its accessibility tree and had not
+            // finished when the shortcut was pressed. It has had the length of
+            // the double-press window since; look once more.
+            captured = focus.focusedField()
+            lastCaptureReport.waitedMs += focus.lastReport.waitedMs
+            lastCaptureReport.foundElement = focus.lastReport.foundElement
+        }
         hud.hide(notify: false)
         forgetUndo()
 
@@ -92,7 +101,10 @@ final class CorrectionCoordinator {
         engine.switchesLayout = settings.switchesLayout
 
         let field = captured as? AXField
+        // With no field, the refusal is about the app in front.
         let bundleID = field.flatMap { NSRunningApplication(processIdentifier: $0.processID)?.bundleIdentifier }
+            ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let captureReport = lastCaptureReport
 
         switch engine.correct(mode: mode, capturedField: captured) {
         case .success(let success):
@@ -109,12 +121,34 @@ final class CorrectionCoordinator {
                 message: mode == .wholeField ? "Field fixed" : "Fixed", anchor: anchor, duration: 6,
                 undo: { [weak self] in self?.undoLast() })
         case .failure(let rejection):
+            // Says which of the three "not supported" cases this was. Codes only.
+            var detail: [String] = []
+            if field == nil { detail.append(captureReport.foundElement ? "elementLost" : "noFocusedElement") }
+            let reason = rejection == .unsupportedField ? field?.unsupportedReason : nil
+            if let reason { detail.append(reason) }
+            if let wake = captureReport.wake { detail.append("wake=\(wake.rawValue) waitedMs=\(captureReport.waitedMs)") }
             DiagnosticsLog.record(
                 DiagnosticEvent(kind: .rejected, mode: mode, rejection: rejection),
-                bundleID: bundleID, role: field?.role)
-            hud.show(message: Self.message(for: rejection), anchor: field?.frame, duration: 2.2)
+                bundleID: bundleID, role: field?.role, detail: detail.isEmpty ? nil : detail.joined(separator: " "))
+            hud.show(
+                message: Self.message(for: rejection, unsupportedReason: reason), anchor: field?.frame,
+                duration: reason == "needsPasteOption" ? 4 : 2.2)
         }
+        scheduleAccessibilityRestore()
     }
+
+    /// `AXEnhancedUserInterface`, where Baddel had to set it to see a
+    /// Chromium-based app's text field, is cleared again once unused for a while.
+    private func scheduleAccessibilityRestore() {
+        restoreTimer?.cancel()
+        let work = DispatchWorkItem { WebAccessibility.restoreEnhanced(idleFor: Self.restoreAfter - 1) }
+        restoreTimer = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.restoreAfter, execute: work)
+    }
+
+    private static let restoreAfter: TimeInterval = 600
+    private var restoreTimer: DispatchWorkItem?
+    private var lastCaptureReport = AXFocusProvider.Report()
 
     func undoLast() {
         guard let (engine, record) = lastUndo else { return }
@@ -137,10 +171,17 @@ final class CorrectionCoordinator {
         onUndoAvailabilityChanged?(false)
     }
 
-    private static func message(for rejection: Rejection) -> String {
+    private static func message(for rejection: Rejection, unsupportedReason: String? = nil) -> String {
         switch rejection {
         case .secureField: return "Secure field — skipped"
-        case .noFocusedField, .unsupportedField, .readFailed: return "This field isn't supported"
+        case .noFocusedField: return "No text field is focused in this app"
+        case .unsupportedField:
+            switch unsupportedReason {
+            case "needsPasteOption": return "This app only accepts pasted text. Turn on “Paste fallback” in Baddel’s Settings."
+            case "notATextElement": return "The focused item isn't a text field"
+            default: return "This field can't be edited by other apps"
+            }
+        case .readFailed: return "Couldn't read this field"
         case .focusChanged: return "Focus changed — nothing was modified"
         case .fieldChanged: return "The text changed — nothing was modified"
         case .fieldTooLarge: return "Field too large — skipped"

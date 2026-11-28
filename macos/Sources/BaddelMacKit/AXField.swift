@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import BaddelCore
 import Foundation
@@ -46,15 +47,43 @@ public final class AXField: EditableField {
         subrole == kAXSecureTextFieldSubrole || role == "AXSecureTextField"
     }
 
-    public var isEditableText: Bool {
-        guard Self.textRoles.contains(role) else { return false }
-        guard AX.range(element, kAXSelectedTextRangeAttribute) != nil else { return false }
-        return AX.isSettable(element, kAXValueAttribute) || AX.isSettable(element, kAXSelectedTextAttribute)
+    public var isEditableText: Bool { unsupportedReason == nil }
+
+    /// Why this element cannot be corrected, as a code that is safe to log, or
+    /// `nil` when it can.
+    ///
+    /// A text element is accepted when Accessibility can write to it, or, with
+    /// the paste option on, when it is a text element whose text and selection
+    /// can be read and whose selection can be set: the paste path then selects
+    /// the exact range, checks it, and pastes over it.
+    public var unsupportedReason: String? {
+        guard Self.textRoles.contains(role) else { return "notATextElement" }
+        guard AX.range(element, kAXSelectedTextRangeAttribute) != nil else { return "noSelectionRange" }
+        if AX.isSettable(element, kAXValueAttribute) || AX.isSettable(element, kAXSelectedTextAttribute) { return nil }
+        guard AX.isSettable(element, kAXSelectedTextRangeAttribute), AX.string(element, kAXValueAttribute) != nil else {
+            return "notWritable"
+        }
+        return pasteFallback == nil ? "needsPasteOption" : nil
     }
+
+    public var isTextElement: Bool { Self.textRoles.contains(role) }
 
     public func readText() throws -> String {
         guard !isSecure, let text = AX.string(element, kAXValueAttribute) else { throw Rejection.readFailed }
-        return text
+        // An empty web editor can report its placeholder ("Ask anything") as
+        // its value. That is not text the user typed.
+        return showsPlaceholder(text) ? "" : text
+    }
+
+    /// Whether `text` is the element's placeholder rather than content: either
+    /// it equals `AXPlaceholderValue`, or the editor marks its only child as
+    /// the placeholder (ProseMirror, used by the ChatGPT message box).
+    private func showsPlaceholder(_ text: String) -> Bool {
+        guard !text.isEmpty else { return false }
+        if AX.string(element, kAXPlaceholderValueAttribute) == text { return true }
+        guard let children = AX.copy(element, kAXChildrenAttribute) as? [AXUIElement], children.count == 1,
+              let classes = AX.copy(children[0], "AXDOMClassList") as? [String] else { return false }
+        return classes.contains("placeholder") || classes.contains("is-empty")
     }
 
     public func readSelection() throws -> UTF16Range {
@@ -184,14 +213,75 @@ public final class AXFocusProvider: FocusProviding {
     public init() { application = nil }
 
     /// Focus within one application (used by the developer check tool).
-    public init(processID: pid_t) { application = AXUIElementCreateApplication(processID) }
+    public init(processID: pid_t) {
+        application = AXUIElementCreateApplication(processID)
+        self.processID = processID
+    }
+
+    private var processID: pid_t?
+
+    /// What the last `focusedField()` call found, as codes that are safe to log.
+    public struct Report: Equatable, Sendable {
+        /// Whether Accessibility named any focused element.
+        public var foundElement = false
+        /// Set when the app had to be asked to expose its accessibility tree.
+        public var wake: WebAccessibility.Wake?
+        /// Milliseconds spent waiting for the tree after asking.
+        public var waitedMs = 0
+
+        public init() {}
+    }
+
+    public private(set) var lastReport = Report()
+
+    /// How long to wait for a Chromium-based app to expose its tree.
+    public var wakeTimeout: TimeInterval = 1.2
 
     public func focusedField() -> EditableField? {
+        var report = Report()
+        defer { lastReport = report }
+        var field = currentField()
+        report.foundElement = field != nil
+        if field?.isTextElement == true {
+            WebAccessibility.touch(processID: field!.processID)
+            return field
+        }
+        // No element, or one that is not text: a Chromium-based app that has not
+        // been asked for its accessibility tree looks exactly like this.
+        guard let target = targetApplication() else { return field }
+        let wake = WebAccessibility.wake(processID: target.processID, bundleURL: target.bundleURL)
+        report.wake = wake
+        guard wake != .notApplicable else { return field }
+        let start = Date()
+        let timeout = wake == .alreadyAsked ? min(wakeTimeout, 0.3) : wakeTimeout
+        while Date().timeIntervalSince(start) < timeout {
+            Thread.sleep(forTimeInterval: 0.04)
+            if let now = currentField() {
+                field = now
+                report.foundElement = true
+                if now.isTextElement { break }
+            }
+        }
+        report.waitedMs = Int(Date().timeIntervalSince(start) * 1000)
+        WebAccessibility.touch(processID: target.processID)
+        return field
+    }
+
+    private func currentField() -> AXField? {
         let root = application ?? AXUIElementCreateSystemWide()
         AXUIElementSetMessagingTimeout(root, 1.0)
         guard let element = AX.element(root, kAXFocusedUIElementAttribute) else { return nil }
         let field = AXField(element: element)
         field.pasteFallback = pasteFallback
         return field
+    }
+
+    /// The application whose focus is being asked about.
+    private func targetApplication() -> (processID: pid_t, bundleURL: URL?)? {
+        if let processID {
+            return (processID, NSRunningApplication(processIdentifier: processID)?.bundleURL)
+        }
+        guard let front = NSWorkspace.shared.frontmostApplication else { return nil }
+        return (front.processIdentifier, front.bundleURL)
     }
 }
