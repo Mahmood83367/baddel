@@ -67,6 +67,13 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
     private let intervalStepper = NSStepper()
     private let switchCheckbox = NSButton(checkboxWithTitle: "Switch the keyboard layout after a correction", target: nil, action: nil)
     private let pasteCheckbox = NSButton(checkboxWithTitle: "Paste fallback for apps that refuse direct edits (experimental)", target: nil, action: nil)
+    private let terminalPopup = NSPopUpButton()
+    private let terminalStatus = NSTextField(wrappingLabelWithString: "")
+    private static let terminalModes: [(title: String, mode: TerminalSharing.Mode)] = [
+        ("Automatic: when a terminal integration is installed", .automatic),
+        ("Always let terminal apps handle the shortcut", .on),
+        ("Never (Baddel keeps the shortcut everywhere)", .off),
+    ]
 
     /// Re-registers the hot key; returns whether the system accepted it.
     var applyShortcut: ((Shortcut) -> Bool)?
@@ -152,6 +159,14 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         loginStatus.font = .systemFont(ofSize: 11)
         loginStatus.preferredMaxLayoutWidth = 330
         refreshLoginItem()
+        for choice in Self.terminalModes { terminalPopup.addItem(withTitle: choice.title) }
+        terminalPopup.selectItem(at: Self.terminalModes.firstIndex { $0.mode == settings.terminalSharing } ?? 0)
+        terminalPopup.target = self
+        terminalPopup.action = #selector(changed)
+        terminalStatus.textColor = .secondaryLabelColor
+        terminalStatus.font = .systemFont(ofSize: 11)
+        terminalStatus.preferredMaxLayoutWidth = 330
+        refreshTerminalStatus()
         for checkbox in [switchCheckbox, pasteCheckbox, autoCheckCheckbox] {
             checkbox.target = self
             checkbox.action = #selector(changed)
@@ -171,6 +186,8 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
             [NSGridCell.emptyContentView, switchCheckbox],
             [NSGridCell.emptyContentView, pasteCheckbox],
             [NSGridCell.emptyContentView, pasteNote],
+            [NSTextField(labelWithString: "In terminals:"), terminalPopup],
+            [NSGridCell.emptyContentView, terminalStatus],
             [NSTextField(labelWithString: "Startup:"), loginCheckbox],
             [NSGridCell.emptyContentView, loginStatus],
             [NSTextField(labelWithString: "Updates:"), channelPopup],
@@ -238,6 +255,11 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         recorder.stop()
     }
 
+    /// Says what the shortcut does in a terminal right now.
+    private func refreshTerminalStatus() {
+        terminalStatus.stringValue = TerminalSharing.summary(settings: settings).dropFirst().joined(separator: "\n")
+    }
+
     private func updateIntervalLabel() {
         intervalField.stringValue = "\(intervalStepper.integerValue) ms"
     }
@@ -247,6 +269,8 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
             settings.shortcut = shortcut
             shortcutStatus.textColor = .secondaryLabelColor
             shortcutStatus.stringValue = "Shortcut set to \(shortcut.displayString)."
+            refreshTerminalStatus()
+            onSettingsChanged?()
         } else {
             // Keep the working shortcut if the system refuses the new one.
             recorder.shortcut = settings.shortcut
@@ -262,6 +286,8 @@ final class PreferencesWindowController: NSWindowController, NSWindowDelegate {
         settings.doublePressMs = intervalStepper.integerValue
         settings.switchesLayout = switchCheckbox.state == .on
         settings.pasteFallbackEnabled = pasteCheckbox.state == .on
+        settings.terminalSharing = Self.terminalModes[max(terminalPopup.indexOfSelectedItem, 0)].mode
+        refreshTerminalStatus()
         settings.updateChannel = UpdateChannel.allCases[max(channelPopup.indexOfSelectedItem, 0)]
         settings.checksForUpdatesAutomatically = autoCheckCheckbox.state == .on
         updateIntervalLabel()

@@ -29,7 +29,10 @@ public sealed record TextFixRequest(string Text, TextFixMode Mode)
     /// <summary>Start and length in <see cref="Unit"/>; used in word mode only.</summary>
     public Utf16Range? Selection { get; init; }
     public Script? Hint { get; init; }
-    /// <summary>Keeps Claude Code's <c>[Image #1]</c> and <c>[Pasted text #1 +5 lines]</c> markers as they are.</summary>
+    /// <summary>
+    /// Keeps Claude Code's <c>[Image #1]</c> and <c>[Pasted text #1 +5 lines]</c> markers, and the
+    /// previous-reply block it may put at the top of a draft file, as they are.
+    /// </summary>
     public bool KeepsClaudePlaceholders { get; init; }
 }
 
@@ -111,8 +114,32 @@ public static partial class TextFix
     /// paste. They refer to content held by Claude Code, so they must survive a
     /// correction letter for letter.
     /// </summary>
-    public static List<Utf16Range> ClaudePlaceholders(string text) =>
-        PlaceholderPattern().Matches(text).Select(m => new Utf16Range(m.Index, m.Length)).ToList();
+    public static List<Utf16Range> ClaudePlaceholders(string text)
+    {
+        var ranges = PlaceholderPattern().Matches(text).Select(m => new Utf16Range(m.Index, m.Length)).ToList();
+        if (ClaudeReferenceBlock(text) is { } reference) ranges.Insert(0, reference);
+        return ranges;
+    }
+
+    /// <summary>
+    /// The line Claude Code writes under its previous reply when "Show last response
+    /// in external editor" is on. Everything up to and including this line is
+    /// reference material that Claude Code removes again on save.
+    /// </summary>
+    public const string ClaudeReplySeparator = "# \u2500\u2500\u2500 Write your reply below this line \u2500\u2500\u2500";
+
+    /// <summary>
+    /// The previous-reply block at the top of a draft file, when there is one. It is
+    /// not the user's text: it must not decide the direction and must come back
+    /// unchanged, or Claude Code can no longer find and remove it.
+    /// </summary>
+    public static Utf16Range? ClaudeReferenceBlock(string text)
+    {
+        var separator = text.IndexOf(ClaudeReplySeparator, StringComparison.Ordinal);
+        if (separator < 0) return null;
+        var end = text.IndexOf('\n', separator);
+        return new Utf16Range(0, end < 0 ? text.Length : end + 1);
+    }
 
     /// <summary>
     /// The UTF-16 offset of position <paramref name="index"/> counted in
@@ -166,7 +193,9 @@ public static partial class TextFix
 ///     corrects a Claude Code draft file in place; the file is rewritten only
 ///     when a correction was made.
 /// </code>
-/// Exit codes: 0 corrected, 1 left unchanged, 2 wrong usage. Messages carry
+/// Exit codes for --fix-text: 0 corrected, 1 left unchanged, 2 wrong usage. For
+/// --fix-draft: 0 corrected or left unchanged, 1 not a Claude Code draft, 2 wrong
+/// usage. Messages carry
 /// stable codes and never the text.
 /// </summary>
 public static class TextFixCommand
@@ -227,10 +256,18 @@ public static class TextFixCommand
         {
             if (draft) error.WriteLine($"baddel: draft left unchanged ({code})");
             else output.Write(utf8.GetBytes($"no {code}\n"));
-            return 1;
+            // Claude Code reports an editor that exits with an error as "quit
+            // unexpectedly". Leaving a draft as it is is not an error.
+            return draft ? 0 : 1;
         }
 
-        if (draft && !anyFile && !Path.GetFileName(file!).StartsWith(DraftPrefix, StringComparison.Ordinal)) return Refuse("notAClaudeDraft");
+        // Another program's file (a commit message, say) is refused with an error
+        // exit, so that program does not carry on as if it had been edited.
+        if (draft && !anyFile && !Path.GetFileName(file!).StartsWith(DraftPrefix, StringComparison.Ordinal))
+        {
+            error.WriteLine("baddel: not a Claude Code draft; file left unchanged (notAClaudeDraft)");
+            return 1;
+        }
 
         string text;
         try

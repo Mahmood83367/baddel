@@ -73,7 +73,9 @@ jobs:
       - name: zsh command line check of the packaged app
         run: |
           app=$(echo dist/check/Baddel-*-macos-universal/Baddel.app)
-          python3 tools/terminal-check.py zsh --bin "$app/Contents/MacOS/Baddel" --script "$app/Contents/Resources/shell/baddel.zsh"
+          for key in shared shared-meta ctrl-t command; do
+            python3 tools/terminal-check.py zsh --key "$key" --bin "$app/Contents/MacOS/Baddel" --script "$app/Contents/Resources/shell/baddel.zsh"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: baddel-macos
@@ -172,6 +174,16 @@ jobs:
           $process = Start-Process $env:PACKAGED_EXE -ArgumentList "--fix-draft", "--hint", "none", "`"$draft`"" -Wait -PassThru
           if ($process.ExitCode -ne 0 -or [IO.File]::ReadAllText($draft) -cne "عليكم [Image #1]") { throw "draft was not corrected" }
           "text-fix command: ok"
+          # What PSReadLine is told to bind for the default shortcut, with throwaway settings.
+          $env:BADDEL_SETTINGS_DIR = Join-Path $env:RUNNER_TEMP "baddel-settings"
+          $info = New-Object System.Diagnostics.ProcessStartInfo
+          $info.FileName = $env:PACKAGED_EXE; $info.Arguments = "--terminal-key pwsh"
+          $info.UseShellExecute = $false; $info.RedirectStandardOutput = $true
+          $process = [System.Diagnostics.Process]::Start($info)
+          $answer = $process.StandardOutput.ReadToEnd(); $process.WaitForExit()
+          if ($answer -cne "ok`nCtrl+Alt+Spacebar`n") { throw "terminal-key mismatch" }
+          if (-not (Test-Path (Join-Path $env:BADDEL_SETTINGS_DIR "terminal-integration"))) { throw "integration marker missing" }
+          "terminal-key command: ok"
       - uses: actions/upload-artifact@v4
         with:
           name: baddel-windows
@@ -224,7 +236,8 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y -q xvfb xdotool openbox dbus-x11 at-spi2-core libatspi2.0-0 libatspi2.0-dev \
-            libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas
+            libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas \
+            xterm gnome-terminal x11-utils
       - name: Test core on Linux
         run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
       - name: Check AT-SPI constants against the installed header
@@ -248,6 +261,15 @@ jobs:
         run: |
           dir=$(echo dist/check/Baddel-*-linux-x64-prototype)
           python3 tools/terminal-check.py bash --bin "$dir/baddel" --script "$dir/shell/baddel.bash"
+          python3 tools/terminal-check.py bash --key ctrl-t --bin "$dir/baddel" --script "$dir/shell/baddel.bash"
+          python3 tools/terminal-check.py bash --key command --bin "$dir/baddel" --script "$dir/shell/baddel.bash"
+      # Real terminal windows (xterm, GNOME Terminal) on a virtual X11 display, with
+      # the running app sharing its shortcut and keys pressed under the English and
+      # the Arabic layout.
+      - name: Shortcut in terminal windows, English and Arabic layouts
+        run: |
+          RESULTS_FILE="$PWD/dist/linux-terminal-windows.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
+            linux/scripts/terminal-window-check.sh dist/check/Baddel-*-linux-x64-prototype
       # The smoke test runs the binary extracted from the archive that is uploaded.
       - name: X11 smoke test of the packaged binary
         run: |
@@ -264,5 +286,7 @@ jobs:
         if: always()
         with:
           name: linux-x11-smoke-results
-          path: dist/linux-x11-smoke.txt
+          path: |
+            dist/linux-x11-smoke.txt
+            dist/linux-terminal-windows.txt
           if-no-files-found: ignore

@@ -50,3 +50,39 @@ final class TextFixTests: XCTestCase {
         XCTAssertEqual(result, .failure(.fieldTooLarge))
     }
 }
+
+/// Runs `shared/fixtures/terminal-keys.json`, which the .NET test suite runs as well.
+final class TerminalKeyTests: XCTestCase {
+    private struct Fixture: Decodable {
+        struct Case: Decodable {
+            struct Expect: Decodable {
+                let reason: String?, sequences: [String]?, needsOptionAsMeta: Bool?, psReadLineChord: String?
+                let claude: [String]?, zsh: [String]?, bash: [String]?
+            }
+            let platform: String, control: Bool, alt: Bool, shift: Bool, command: Bool, key: String
+            let expect: Expect
+        }
+        let cases: [Case]
+    }
+
+    func testSharedCases() throws {
+        let url = Shared.directory.appendingPathComponent("fixtures/terminal-keys.json")
+        let fixture = try JSONDecoder().decode(Fixture.self, from: Data(contentsOf: url))
+        XCTAssertGreaterThan(fixture.cases.count, 10)
+        for c in fixture.cases {
+            let name = "\(c.platform) ctrl=\(c.control) alt=\(c.alt) shift=\(c.shift) cmd=\(c.command) \(c.key)"
+            let key = TerminalKey.resolve(
+                TerminalKey.Combination(control: c.control, alt: c.alt, shift: c.shift, command: c.command, key: c.key),
+                platform: TerminalKey.Platform(rawValue: c.platform)!)
+            XCTAssertEqual(key.reason, c.expect.reason, name)
+            XCTAssertEqual(key.isDeliverable, c.expect.reason == nil, name)
+            guard c.expect.reason == nil else { continue }
+            XCTAssertEqual(key.sequences.map { $0.map { String(format: "%02x", $0) }.joined() }, c.expect.sequences, name)
+            XCTAssertEqual(key.needsOptionAsMeta, c.expect.needsOptionAsMeta, name)
+            XCTAssertEqual(key.psReadLineChord, c.expect.psReadLineChord, name)
+            XCTAssertEqual(key.claudeKeystrokes, c.expect.claude, name)
+            XCTAssertEqual(key.notation(for: .zsh), c.expect.zsh, name)
+            XCTAssertEqual(key.notation(for: .bash), c.expect.bash, name)
+        }
+    }
+}

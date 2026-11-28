@@ -6,14 +6,16 @@
 #
 #   . "C:\Tools\Baddel\shell\baddel.ps1"
 #
-# Press Ctrl+T once to correct the selected text, or the last word before the
+# Press Baddel's shortcut (the one set in its Settings, Ctrl+Alt+Space unless you
+# changed it) once to correct the selected text, or the last word before the
 # cursor when nothing is selected. Press it twice quickly to correct the whole
-# command line. PSReadLine's own undo (Ctrl+Z) restores the previous text.
+# command line. If that combination cannot reach a terminal, Ctrl+T is used. PSReadLine's own undo (Ctrl+Z) restores the previous text.
 # Nothing is ever run or accepted for you: the line stays on the prompt for you
 # to review.
 #
 # Settings, as environment variables set before this script is loaded:
-#   BADDEL_KEY              PSReadLine chord (default 'Ctrl+t'); 'none' binds nothing
+#   BADDEL_KEY              a PSReadLine chord of your own, instead of Baddel's
+#                           shortcut; 'none' binds nothing
 #   BADDEL_BIN              path of Baddel.exe
 #   BADDEL_DOUBLE_PRESS_MS  time allowed for the second press (default 300)
 #   BADDEL_HINT             latin | arabic | none: the layout to assume when the text
@@ -103,7 +105,26 @@ function global:Invoke-BaddelFix([ValidateSet('auto', 'word', 'line')][string]$M
     $state.Time = $state.Clock.ElapsedMilliseconds
 }
 
-$baddelKey = if ($env:BADDEL_KEY) { $env:BADDEL_KEY } else { 'Ctrl+t' }
+$baddelKey = $env:BADDEL_KEY
+if (-not $baddelKey) {
+    # Ask Baddel which chord its shortcut is in a terminal.
+    $baddelKey = 'Ctrl+t'
+    try {
+        $baddelInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $baddelInfo.FileName = $global:BaddelShell.Exe
+        $baddelInfo.Arguments = '--terminal-key pwsh'
+        $baddelInfo.UseShellExecute = $false
+        $baddelInfo.CreateNoWindow = $true
+        $baddelInfo.RedirectStandardOutput = $true
+        $baddelProcess = [System.Diagnostics.Process]::Start($baddelInfo)
+        $baddelAnswer = $baddelProcess.StandardOutput.ReadToEnd() -split "`r?`n"
+        $baddelProcess.WaitForExit()
+        $baddelProcess.Dispose()
+        if ($baddelAnswer[0] -eq 'ok' -and $baddelAnswer[1]) { $baddelKey = $baddelAnswer[1] }
+    } catch {
+    }
+    Remove-Variable baddelInfo, baddelProcess, baddelAnswer -ErrorAction SilentlyContinue
+}
 if ($baddelKey -ne 'none') {
     Set-PSReadLineKeyHandler -Chord $baddelKey -BriefDescription 'BaddelFix' `
         -Description 'Baddel: correct text typed with the wrong keyboard layout (twice: the whole line)' `

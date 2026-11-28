@@ -5,13 +5,15 @@
 #
 #   source /Applications/Baddel.app/Contents/Resources/shell/baddel.zsh
 #
-# Press Ctrl+T once to correct the selected region, or the last word before the
+# Press Baddel's shortcut (the one set in its Settings, ⌥⇧Space unless you
+# changed it) once to correct the selected region, or the last word before the
 # cursor when nothing is selected. Press it twice quickly to correct the whole
-# command line. zsh's own undo (Ctrl+_) restores the previous text. Nothing is
+# command line. If that combination cannot reach a terminal, Ctrl+T is used. zsh's own undo (Ctrl+_) restores the previous text. Nothing is
 # ever run or accepted for you: the line stays on the prompt for you to review.
 #
 # Settings, to be set before the `source` line:
-#   BADDEL_KEY              key in bindkey notation (default '^T'); empty binds nothing
+#   BADDEL_KEY              a key of your own in bindkey notation, instead of Baddel's
+#                           shortcut; empty binds nothing
 #   BADDEL_BIN              path of the Baddel executable
 #   BADDEL_DOUBLE_PRESS_MS  time allowed for the second press (default 300)
 #   BADDEL_HINT             latin | arabic | none: the layout to assume when the text
@@ -90,4 +92,19 @@ baddel-fix() {
 zle -N baddel-fix
 zle -N baddel-fix-word
 zle -N baddel-fix-line
-if [[ -n ${BADDEL_KEY-^T} ]]; then bindkey ${BADDEL_KEY-^T} baddel-fix; fi
+if [[ -n ${BADDEL_KEY+set} ]]; then
+  [[ -n $BADDEL_KEY ]] && bindkey $BADDEL_KEY baddel-fix
+else
+  # Ask Baddel which key sequences its shortcut sends in a terminal.
+  () {
+    emulate -L zsh
+    local -a answer
+    [[ -x $BADDEL_BIN ]] && answer=("${(@f)$("$BADDEL_BIN" --terminal-key zsh 2>/dev/null)}")
+    if [[ ${answer[1]-} == ok ]] && (( $#answer > 1 )); then
+      local sequence
+      for sequence in "${(@)answer[2,-1]}"; do bindkey "$sequence" baddel-fix; done
+    else
+      bindkey '^T' baddel-fix
+    fi
+  }
+fi

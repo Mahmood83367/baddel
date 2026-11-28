@@ -5,13 +5,16 @@
 #
 #   source ~/baddel/shell/baddel.bash
 #
-# Press Ctrl+T once to correct the last word before the cursor. Press it twice
-# quickly to correct the whole command line. Readline's own undo (Ctrl+_)
+# Press Baddel's shortcut (the one in its settings, Ctrl+Alt+Space unless you
+# changed it) once to correct the last word before the cursor. Press it twice
+# quickly to correct the whole command line. If that combination cannot reach a
+# terminal, Ctrl+T is used. Readline's own undo (Ctrl+_)
 # restores the previous text; after a double press, undo twice. Nothing is ever
 # run or accepted for you: the line stays on the prompt for you to review.
 #
 # Settings, to be set before the `source` line:
-#   BADDEL_KEY              key in Readline notation (default '\C-t'); empty binds nothing
+#   BADDEL_KEY              a key of your own in Readline notation, instead of Baddel's
+#                           shortcut; empty binds nothing
 #   BADDEL_BIN              path of the baddel executable
 #   BADDEL_DOUBLE_PRESS_MS  time allowed for the second press (default 300)
 #   BADDEL_HINT             latin | arabic | none: the layout to assume when the text
@@ -95,6 +98,18 @@ _baddel_fix() {
   _baddel_time=$_baddel_now
 }
 
-if [[ -n ${BADDEL_KEY-\\C-t} ]]; then
-  bind -m emacs -x "\"${BADDEL_KEY-\\C-t}\": _baddel_fix" 2>/dev/null
+if [[ -n ${BADDEL_KEY+set} ]]; then
+  [[ -n $BADDEL_KEY ]] && bind -m emacs -x "\"$BADDEL_KEY\": _baddel_fix" 2>/dev/null
+else
+  # Ask Baddel which key sequences its shortcut sends in a terminal.
+  _baddel_answer=()
+  [[ -x $BADDEL_BIN ]] && mapfile -t _baddel_answer < <("$BADDEL_BIN" --terminal-key bash 2>/dev/null)
+  if [[ ${_baddel_answer[0]-} == ok && ${#_baddel_answer[@]} -gt 1 ]]; then
+    for _baddel_sequence in "${_baddel_answer[@]:1}"; do
+      bind -m emacs -x "\"$_baddel_sequence\": _baddel_fix" 2>/dev/null
+    done
+  else
+    bind -m emacs -x '"\C-t": _baddel_fix' 2>/dev/null
+  fi
+  unset _baddel_answer _baddel_sequence
 fi

@@ -19,6 +19,16 @@ internal static class Program
         // talk to a running Baddel and need no accessibility bus. See docs/TERMINAL.md.
         if (TextFixCommand.Handles(args)) return FixText(args);
 
+        // `baddel --terminal-key bash|zsh|claude|status` says how the shortcut in
+        // settings.json reaches a terminal; the shell integration asks once on load.
+        if (args.FirstOrDefault() == "--terminal-key")
+        {
+            var current = LinuxSettings.Load();
+            return TerminalSharing.RunCommand(
+                args.ElementAtOrDefault(1), current.Shortcut, TerminalPlatform.Linux, current.TerminalSharing,
+                LinuxSettings.Directory, "Bash", Console.Out, Console.Error);
+        }
+
         switch (args.FirstOrDefault())
         {
             case "--version":
@@ -34,6 +44,7 @@ internal static class Program
                     + "baddel --check-updates [stable|preview]   look for a newer release (installs nothing)\n"
                     + "baddel --fix-text …    correct a shell command line (used by shell/baddel.bash)\n"
                     + "baddel --fix-draft FILE   correct a Claude Code draft (used as its external editor)\n"
+                    + "baddel --terminal-key status   how the shortcut reaches a terminal\n"
                     + "baddel --dump-layout <xkb layout> [variant]\n"
                     + "baddel --version");
                 return 0;

@@ -14,7 +14,9 @@ import Foundation
 ///         corrects a Claude Code draft file in place; the file is rewritten
 ///         only when a correction was made.
 ///
-/// Exit codes: 0 corrected, 1 left unchanged, 2 wrong usage. Messages carry
+/// Exit codes for --fix-text: 0 corrected, 1 left unchanged, 2 wrong usage. For
+/// --fix-draft: 0 corrected or left unchanged, 1 not a Claude Code draft, 2
+/// wrong usage. Messages carry
 /// stable codes and never the text.
 enum TextFixCommand {
     static let draftPrefix = "claude-prompt-"
@@ -82,11 +84,18 @@ enum TextFixCommand {
             } else {
                 FileHandle.standardOutput.write(Data("no \(code)\n".utf8))
             }
-            return 1
+            // Claude Code reports an editor that exits with an error as "quit
+            // unexpectedly". Leaving a draft as it is is not an error.
+            return draft ? 0 : 1
         }
 
+        // Another program's file (a commit message, say) is refused with an
+        // error exit, so that program does not carry on as if it had been edited.
         let url = file.map { URL(fileURLWithPath: $0) }
-        if let url, !anyFile, !url.lastPathComponent.hasPrefix(draftPrefix) { return refuse("notAClaudeDraft") }
+        if let url, !anyFile, !url.lastPathComponent.hasPrefix(draftPrefix) {
+            say("baddel: not a Claude Code draft; file left unchanged (notAClaudeDraft)")
+            return 1
+        }
 
         let data: Data
         if let url {
@@ -132,5 +141,71 @@ enum TextFixCommand {
 
     private static func say(_ message: String) {
         FileHandle.standardError.write(Data((message + "\n").utf8))
+    }
+}
+
+/// `Baddel --terminal-key …`: reports how the one shortcut reaches a terminal.
+///
+///     zsh | bash   "ok" and one key sequence per line in that shell's bind
+///                  notation, or "no REASON"
+///     pwsh         "ok" and the PSReadLine chord, or "no REASON"
+///     claude       the keybindings.json entry for Claude Code, with notes
+///     status       what is active, in words
+///
+/// A shell or Claude Code asking for its key is how Baddel learns that a
+/// terminal integration is installed, which is what "Automatic" pass-through
+/// waits for. Nothing else is recorded.
+enum TerminalKeyCommand {
+    static func run(_ target: String) -> Int32 {
+        let settings = Settings.shared
+        let key = settings.shortcut.terminalKey
+        func out(_ lines: [String]) { FileHandle.standardOutput.write(Data((lines.joined(separator: "\n") + "\n").utf8)) }
+        switch target {
+        case "zsh", "bash":
+            settings.terminalIntegrationSeen = true
+            guard key.isDeliverable else { out(["no \(key.reason ?? "unknown")"]); return 1 }
+            out(["ok"] + key.notation(for: target == "zsh" ? .zsh : .bash))
+        case "pwsh":
+            settings.terminalIntegrationSeen = true
+            guard let chord = key.psReadLineChord else { out(["no \(key.reason ?? "unknown")"]); return 1 }
+            out(["ok", chord])
+        case "claude":
+            guard key.isDeliverable else {
+                out(["# \(TerminalSharing.reasonText(key.reason)) Use Ctrl+G in Claude Code, or choose another shortcut in Baddel's Settings."])
+                return 1
+            }
+            settings.terminalIntegrationSeen = true
+            out(claudeSnippet(key))
+        case "status":
+            out(TerminalSharing.summary(settings: settings))
+        default:
+            FileHandle.standardError.write(Data("baddel: usage: --terminal-key zsh|bash|pwsh|claude|status\n".utf8))
+            return 2
+        }
+        return 0
+    }
+
+    /// The entry a user adds to `~/.claude/keybindings.json`. Baddel never
+    /// writes that file itself.
+    static func claudeSnippet(_ key: TerminalKey) -> [String] {
+        let bindings = key.claudeKeystrokes.map { "        \"\($0)\": \"chat:externalEditor\"" }.joined(separator: ",\n")
+        var lines = [
+            "# Add this to the \"bindings\" list in ~/.claude/keybindings.json. Ctrl+G keeps working.",
+            "{",
+            "  \"bindings\": [",
+            "    {",
+            "      \"context\": \"Chat\",",
+            "      \"bindings\": {",
+            bindings,
+            "      }",
+            "    }",
+            "  ]",
+            "}",
+        ]
+        if key.needsOptionAsMeta {
+            lines.append("# In Terminal this needs “Use Option as Meta key” (Settings → Profiles → Keyboard),")
+            lines.append("# or a terminal that reports modifier keys. Without it, press Ctrl+G.")
+        }
+        return lines
     }
 }

@@ -1,0 +1,292 @@
+{
+  "comment": "TerminalKey cases run by the Swift and .NET test suites. Sequences are hexadecimal bytes.",
+  "cases": [
+    {
+      "platform": "macos",
+      "control": false,
+      "alt": true,
+      "shift": true,
+      "command": false,
+      "key": "space",
+      "expect": {
+        "sequences": [
+          "c2a0",
+          "1b20"
+        ],
+        "needsOptionAsMeta": true,
+        "psReadLineChord": "Alt+Shift+Spacebar",
+        "claude": [
+          "alt+shift+space",
+          "alt+space"
+        ],
+        "zsh": [
+          "\\xc2\\xa0",
+          "\\e\\x20"
+        ],
+        "bash": [
+          "\\xc2\\xa0",
+          "\\e\\x20"
+        ]
+      }
+    },
+    {
+      "platform": "windows",
+      "control": true,
+      "alt": true,
+      "shift": false,
+      "command": false,
+      "key": "space",
+      "expect": {
+        "sequences": [
+          "1b00"
+        ],
+        "needsOptionAsMeta": false,
+        "psReadLineChord": "Ctrl+Alt+Spacebar",
+        "claude": [
+          "ctrl+alt+space"
+        ],
+        "zsh": [
+          "\\e^@"
+        ],
+        "bash": [
+          "\\e\\C-@"
+        ]
+      }
+    },
+    {
+      "platform": "linux",
+      "control": true,
+      "alt": true,
+      "shift": false,
+      "command": false,
+      "key": "space",
+      "expect": {
+        "sequences": [
+          "1b00"
+        ],
+        "needsOptionAsMeta": false,
+        "psReadLineChord": "Ctrl+Alt+Spacebar",
+        "claude": [
+          "ctrl+alt+space"
+        ],
+        "zsh": [
+          "\\e^@"
+        ],
+        "bash": [
+          "\\e\\C-@"
+        ]
+      }
+    },
+    {
+      "platform": "macos",
+      "control": true,
+      "alt": false,
+      "shift": false,
+      "command": false,
+      "key": "t",
+      "expect": {
+        "sequences": [
+          "14"
+        ],
+        "needsOptionAsMeta": false,
+        "psReadLineChord": "Ctrl+t",
+        "claude": [
+          "ctrl+t"
+        ],
+        "zsh": [
+          "^T"
+        ],
+        "bash": [
+          "\\C-t"
+        ]
+      }
+    },
+    {
+      "platform": "linux",
+      "control": true,
+      "alt": false,
+      "shift": false,
+      "command": false,
+      "key": "]",
+      "expect": {
+        "sequences": [
+          "1d"
+        ],
+        "needsOptionAsMeta": false,
+        "psReadLineChord": "Ctrl+]",
+        "claude": [
+          "ctrl+]"
+        ],
+        "zsh": [
+          "^]"
+        ],
+        "bash": [
+          "\\C-]"
+        ]
+      }
+    },
+    {
+      "platform": "windows",
+      "control": true,
+      "alt": false,
+      "shift": false,
+      "command": false,
+      "key": "space",
+      "expect": {
+        "sequences": [
+          "00"
+        ],
+        "needsOptionAsMeta": false,
+        "psReadLineChord": "Ctrl+Spacebar",
+        "claude": [
+          "ctrl+space"
+        ],
+        "zsh": [
+          "^@"
+        ],
+        "bash": [
+          "\\C-@"
+        ]
+      }
+    },
+    {
+      "platform": "linux",
+      "control": false,
+      "alt": true,
+      "shift": true,
+      "command": false,
+      "key": "b",
+      "expect": {
+        "sequences": [
+          "1b42"
+        ],
+        "needsOptionAsMeta": false,
+        "psReadLineChord": "Alt+Shift+b",
+        "claude": [
+          "alt+shift+b",
+          "alt+b"
+        ],
+        "zsh": [
+          "\\eB"
+        ],
+        "bash": [
+          "\\eB"
+        ]
+      }
+    },
+    {
+      "platform": "macos",
+      "control": false,
+      "alt": true,
+      "shift": false,
+      "command": false,
+      "key": "b",
+      "expect": {
+        "sequences": [
+          "1b62"
+        ],
+        "needsOptionAsMeta": true,
+        "psReadLineChord": "Alt+b",
+        "claude": [
+          "alt+b"
+        ],
+        "zsh": [
+          "\\eb"
+        ],
+        "bash": [
+          "\\eb"
+        ]
+      }
+    },
+    {
+      "platform": "macos",
+      "control": true,
+      "alt": true,
+      "shift": false,
+      "command": false,
+      "key": "g",
+      "expect": {
+        "sequences": [
+          "1b07"
+        ],
+        "needsOptionAsMeta": true,
+        "psReadLineChord": "Ctrl+Alt+g",
+        "claude": [
+          "ctrl+alt+g"
+        ],
+        "zsh": [
+          "\\e^G"
+        ],
+        "bash": [
+          "\\e\\C-g"
+        ]
+      }
+    },
+    {
+      "platform": "macos",
+      "control": false,
+      "alt": false,
+      "shift": true,
+      "command": true,
+      "key": "b",
+      "expect": {
+        "reason": "usesCommandKey"
+      }
+    },
+    {
+      "platform": "windows",
+      "control": true,
+      "alt": false,
+      "shift": false,
+      "command": false,
+      "key": "c",
+      "expect": {
+        "reason": "reservedInTerminals"
+      }
+    },
+    {
+      "platform": "linux",
+      "control": true,
+      "alt": false,
+      "shift": false,
+      "command": false,
+      "key": "[",
+      "expect": {
+        "reason": "reservedInTerminals"
+      }
+    },
+    {
+      "platform": "linux",
+      "control": true,
+      "alt": false,
+      "shift": false,
+      "command": false,
+      "key": "1",
+      "expect": {
+        "reason": "keyHasNoTerminalSequence"
+      }
+    },
+    {
+      "platform": "windows",
+      "control": true,
+      "alt": false,
+      "shift": false,
+      "command": false,
+      "key": "f5",
+      "expect": {
+        "reason": "keyHasNoTerminalSequence"
+      }
+    },
+    {
+      "platform": "macos",
+      "control": false,
+      "alt": false,
+      "shift": true,
+      "command": false,
+      "key": "space",
+      "expect": {
+        "reason": "needsControlOrAlt"
+      }
+    }
+  ]
+}

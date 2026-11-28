@@ -39,6 +39,12 @@ import fcntl
 import termios
 
 CTRL_T, CTRL_G, CTRL_U, CTRL_UNDERSCORE, CTRL_Z, CTRL_A, CTRL_E, CTRL_AT = "\x14", "\x07", "\x15", "\x1f", "\x1a", "\x01", "\x05", "\x00"
+# What the shortcut under test sends in a terminal. Each check sets it: Baddel's
+# own shortcut as that platform's terminals deliver it, or Ctrl+T as the fallback.
+KEY = CTRL_T
+OPTION_SPACE = "\u00a0"       # macOS Terminal, default settings: Option-(Shift-)Space types a no-break space
+ESC_SPACE = "\x1b "           # the same key with "Use Option as Meta key"
+CTRL_ALT_SPACE = "\x1b\x00"   # Ctrl+Alt+Space on Windows and Linux terminals
 DUMP_KEY = "\x18\x04"  # Ctrl+X Ctrl+D, bound by the checks to "write the buffer to a file"
 PLACEHOLDER_KEY = "sk-ant-api03-" + "baddel-terminal-check-placeholder-0000000000000000"
 
@@ -164,14 +170,14 @@ class Files:
 # terminal delivers it.
 def shell_cases(undo, selection):
     cases = [
-        ("one press corrects the last word", "echo ugd;l" + CTRL_T, "echo عليكم"),
-        ("one press, then the shell's undo", "echo ugd;l" + CTRL_T + "|" + undo, "echo ugd;l"),
-        ("two quick presses correct the whole line", "hgsghl ugd;l" + CTRL_T + CTRL_T, "السلام عليكم"),
-        ("Arabic typed for English, last word", "git سفشفعس" + CTRL_T, "git status"),
-        ("mixed line: only the last word changes on one press", 'echo "ugd;l" ugd;l' + CTRL_T, 'echo "ugd;l" عليكم'),
-        ("a slow second press is a new single press", "echo ugd;l" + CTRL_T + "|WAIT|" + CTRL_T, "echo ugd;l"),
-        ("nothing to correct leaves the line alone", "   " + CTRL_T, "   "),
-        ("cursor in the middle: the word before it", "ugd;l hgsghl" + CTRL_A + "\x1b[C" * 5 + CTRL_T, "عليكم hgsghl"),
+        ("one press corrects the last word", "echo ugd;l" + KEY, "echo عليكم"),
+        ("one press, then the shell's undo", "echo ugd;l" + KEY + "|" + undo, "echo ugd;l"),
+        ("two quick presses correct the whole line", "hgsghl ugd;l" + KEY + KEY, "السلام عليكم"),
+        ("Arabic typed for English, last word", "git سفشفعس" + KEY, "git status"),
+        ("mixed line: only the last word changes on one press", 'echo "ugd;l" ugd;l' + KEY, 'echo "ugd;l" عليكم'),
+        ("a slow second press is a new single press", "echo ugd;l" + KEY + "|WAIT|" + KEY, "echo ugd;l"),
+        ("nothing to correct leaves the line alone", "   " + KEY, "   "),
+        ("cursor in the middle: the word before it", "ugd;l hgsghl" + CTRL_A + "\x1b[C" * 5 + KEY, "عليكم hgsghl"),
     ]
     if selection:
         cases.append(("a selection of two words is corrected, not just the last word", selection, "echo عليكم السلام"))
@@ -191,7 +197,7 @@ def run_shell_cases(terminal, files, dump, report, cases, undo_after_double, cle
         report.check(name, files.read(dump), expected)
     # Undo after a double press must come back to exactly what was typed.
     terminal.send(clear, 0.3)
-    terminal.send("hgsghl ugd;l" + CTRL_T + CTRL_T, 1.2)
+    terminal.send("hgsghl ugd;l" + KEY + KEY, 1.2)
     for _ in range(undo_after_double):
         terminal.send(cases[1][1].split("|")[1], 0.4)
     files.remove(dump)
@@ -210,14 +216,27 @@ unsetopt zle_bracketed_paste 2>/dev/null
 unset HISTFILE
 BADDEL_BIN={shlex.quote(os.path.abspath(args.bin))}
 BADDEL_HINT=none
+{"BADDEL_KEY='^T'" if args.key == "ctrl-t" else ""}
 source {shlex.quote(os.path.abspath(args.script))}
 precmd() {{ print p >> {shlex.quote(prompts)} }}
 _check_dump() {{ print -rn -- "$BUFFER" > {shlex.quote(dump)}.tmp; mv {shlex.quote(dump)}.tmp {shlex.quote(dump)} }}
 zle -N _check_dump
 bindkey '^X^D' _check_dump
 """)
+    # A preferences domain of the check's own, so the real settings are never read
+    # or changed. "command" stores a shortcut no terminal can deliver (⇧⌘B).
+    suite = f"app.baddel.check{os.getpid()}"
+    if args.key == "command":
+        subprocess.run(["defaults", "write", suite, "shortcutKeyCode", "-int", "11"], check=True)
+        subprocess.run(["defaults", "write", suite, "shortcutModifiers", "-int", "768"], check=True)
     env = {"PATH": os.environ["PATH"], "HOME": home, "ZDOTDIR": home, "TERM": "xterm-256color",
-           "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8"}
+           "LANG": "en_US.UTF-8", "LC_ALL": "en_US.UTF-8", "BADDEL_SETTINGS_SUITE": suite}
+    global KEY
+    KEY = {"shared": OPTION_SPACE, "shared-meta": ESC_SPACE}.get(args.key, CTRL_T)
+    print("    key under test:", {"shared": "Baddel's shortcut as Terminal sends it by default (no-break space)",
+                                   "shared-meta": "Baddel's shortcut with Option as Meta (Escape, Space)",
+                                   "command": "Ctrl+T, because the stored shortcut uses Command",
+                                   "ctrl-t": "Ctrl+T set with BADDEL_KEY"}[args.key])
     terminal = Terminal(["zsh", "-i"], env, home)
     try:
         if not terminal.wait_for("ready> "):
@@ -225,13 +244,20 @@ bindkey '^X^D' _check_dump
             return report.finish()
         # Ctrl+Space sets the mark at the end; twelve Left keys extend the region
         # back over the last two words.
-        selection = "echo ugd;l hgsghl" + CTRL_AT + "\x1b[D" * 12 + CTRL_T
+        selection = "echo ugd;l hgsghl" + CTRL_AT + "\x1b[D" * 12 + KEY
         run_shell_cases(terminal, Files(), dump, report, shell_cases(CTRL_UNDERSCORE, selection), undo_after_double=1)
         with open(prompts) as handle:
             report.check("no command line was run", handle.read().count("p"), 1)
+        status = subprocess.run([os.path.abspath(args.bin), "--terminal-key", "status"], env=dict(os.environ, BADDEL_SETTINGS_SUITE=suite),
+                                stdout=subprocess.PIPE, universal_newlines=True).stdout
+        if args.key in ("shared", "shared-meta"):
+            report.check("loading the script turned automatic pass-through on", "on (automatic" in status, True)
+        elif args.key == "command":
+            report.check("status says the shortcut cannot reach a terminal", "not available" in status, True)
     finally:
         terminal.close()
         shutil.rmtree(home, ignore_errors=True)
+        subprocess.run(["defaults", "delete", suite], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return report.finish()
 
 
@@ -245,13 +271,23 @@ unset HISTFILE
 bind 'set enable-bracketed-paste off' 2>/dev/null
 BADDEL_BIN={shlex.quote(os.path.abspath(args.bin))}
 BADDEL_HINT=none
+{"BADDEL_KEY='\\C-t'" if args.key == "ctrl-t" else ""}
 source {shlex.quote(os.path.abspath(args.script))}
 PROMPT_COMMAND='echo p >> {shlex.quote(prompts)}'
 _check_dump() {{ printf '%s' "$READLINE_LINE" > {shlex.quote(dump)}.tmp; mv {shlex.quote(dump)}.tmp {shlex.quote(dump)}; }}
 bind -x '"\\C-x\\C-d": _check_dump'
 echo "bash $BASH_VERSION unit=$_baddel_unit"
 """)
-    env = {"PATH": os.environ["PATH"], "HOME": home, "TERM": "xterm-256color", "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8"}
+    settings = os.path.join(home, "settings")
+    os.makedirs(settings)
+    if args.key == "command":
+        with open(os.path.join(settings, "settings.json"), "w") as handle:
+            json.dump({"Shortcut": "Super+space"}, handle)
+    env = {"PATH": os.environ["PATH"], "HOME": home, "TERM": "xterm-256color", "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8",
+           "BADDEL_SETTINGS_DIR": settings}
+    global KEY
+    KEY = CTRL_ALT_SPACE if args.key in ("shared", "shared-meta") else CTRL_T
+    print("    key under test:", "Baddel's shortcut, Ctrl+Alt+Space (Escape, NUL)" if KEY == CTRL_ALT_SPACE else "Ctrl+T")
     terminal = Terminal([args.shell or "bash", "--noprofile", "--rcfile", os.path.join(home, "rc"), "-i"], env, home)
     try:
         if not terminal.wait_for("ready> "):
@@ -264,6 +300,8 @@ echo "bash $BASH_VERSION unit=$_baddel_unit"
         run_shell_cases(terminal, Files(), dump, report, shell_cases(CTRL_UNDERSCORE, None), undo_after_double=2)
         with open(prompts) as handle:
             report.check("no command line was run", handle.read().count("p"), 1)
+        if args.key in ("shared", "shared-meta"):
+            report.check("loading the script left the integration marker", os.path.exists(os.path.join(settings, "terminal-integration")), True)
     finally:
         terminal.close()
         shutil.rmtree(home, ignore_errors=True)
@@ -287,7 +325,8 @@ def check_pwsh(args):
         setup = [
             "[Console]::InputEncoding = [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)",
             "Set-PSReadLineOption -HistorySaveStyle SaveNothing",
-            f"$env:BADDEL_BIN = '{args.bin}'; $env:BADDEL_HINT = 'none'",
+            f"$env:BADDEL_BIN = '{args.bin}'; $env:BADDEL_HINT = 'none'; $env:BADDEL_SETTINGS_DIR = '{directory}\\settings'"
+            + ("; $env:BADDEL_KEY = 'Ctrl+t'" if args.key == "ctrl-t" else ""),
             f". '{args.script}'",
             "Set-PSReadLineKeyHandler -Chord 'Ctrl+x,Ctrl+d' -ScriptBlock { $l = $null; $c = 0; "
             "[Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState([ref]$l, [ref]$c); "
@@ -304,8 +343,11 @@ def check_pwsh(args):
         version = re.findall(r"psreadline [0-9][0-9.]* powershell [0-9][0-9.]*", terminal.output.decode("utf-8", "replace"))
         print("   ", version[-1] if version else "PSReadLine version unknown")
         before = (files.read(prompts) or "").count("p")
+        global KEY
+        KEY = CTRL_ALT_SPACE if args.key in ("shared", "shared-meta") else CTRL_T
+        print("    key under test:", "Baddel's shortcut, Ctrl+Alt+Space (Escape, NUL over the SSH terminal)" if KEY == CTRL_ALT_SPACE else "Ctrl+T")
         # Twelve Shift+Left keys select the last two words.
-        selection = "echo ugd;l hgsghl" + "\x1b[1;2D" * 12 + CTRL_T
+        selection = "echo ugd;l hgsghl" + "\x1b[1;2D" * 12 + KEY
         cases = shell_cases(CTRL_Z, selection)
         # In PSReadLine's Windows mode Home is the start of the line.
         cases = [(n, k.replace(CTRL_A + "\x1b[C", "\x1b[H\x1b[C"), e) for n, k, e in cases]
@@ -350,7 +392,11 @@ def check_claude(args):
         if "ready" not in remote_powershell(args.ssh, setup).stdout:
             report.check("the test folder on the host is prepared", "failed", "ready")
             return report.finish()
+        shared_key = CTRL_ALT_SPACE
+        bindings = json.dumps({"bindings": [{"context": "Chat", "bindings": {"ctrl+alt+space": "chat:externalEditor"}}]})
+        remote_powershell(args.ssh, f"[IO.File]::WriteAllText('{config}\\keybindings.json', '{bindings}', (New-Object Text.UTF8Encoding($false)))")
         command = (f"$env:CLAUDE_CONFIG_DIR='{config}'; $env:ANTHROPIC_API_KEY='{PLACEHOLDER_KEY}'; $env:VISUAL='{editor}'; "
+                   f"$env:BADDEL_SETTINGS_DIR='{directory}\\settings'; "
                    f"$env:EDITOR='{editor}'; $env:DISABLE_AUTOUPDATER='1'; $env:CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1'; "
                    f"Set-Location '{work}'; & '{args.claude or 'claude'}'")
         terminal = Terminal(["ssh", "-tt", "-o", "BatchMode=yes", args.ssh, "powershell", "-NoLogo", "-NoProfile", "-EncodedCommand", encoded(command)])
@@ -367,7 +413,15 @@ if [ -f {shlex.quote(mode)} ]; then cp "$1" {shlex.quote(dump)}.tmp && mv {shlex
 exec {shlex.quote(os.path.abspath(args.bin))} --fix-draft --hint "$(cat {shlex.quote(join('hint'))} 2>/dev/null || echo none)" "$1"
 """)
         os.chmod(editor, 0o755)
-        env = {"PATH": os.environ["PATH"], "HOME": directory, "TERM": "xterm-256color", "LANG": "en_US.UTF-8",
+        # Claude Code's own keybindings file, in the throwaway configuration, holding
+        # the entry `--terminal-key claude` prints for Baddel's shortcut.
+        isolation = {"BADDEL_SETTINGS_SUITE": f"app.baddel.check{os.getpid()}", "BADDEL_SETTINGS_DIR": join("settings")}
+        snippet = subprocess.run([os.path.abspath(args.bin), "--terminal-key", "claude"], env=dict(os.environ, **isolation),
+                                 stdout=subprocess.PIPE, universal_newlines=True).stdout
+        with open(os.path.join(config, "keybindings.json"), "w") as handle:
+            handle.write("\n".join(line for line in snippet.splitlines() if not line.startswith("#")))
+        shared_key = ESC_SPACE if sys.platform == "darwin" else CTRL_ALT_SPACE
+        env = {"PATH": os.environ["PATH"], "HOME": directory, "TERM": "xterm-256color", "LANG": "en_US.UTF-8", **isolation,
                "CLAUDE_CONFIG_DIR": config, "ANTHROPIC_API_KEY": PLACEHOLDER_KEY, "VISUAL": editor, "EDITOR": editor,
                "DISABLE_AUTOUPDATER": "1", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"}
         terminal = Terminal([args.claude or "claude"], env, work)
@@ -408,6 +462,14 @@ exec {shlex.quote(os.path.abspath(args.bin))} --fix-draft --hint "$(cat {shlex.q
         terminal.send("اثممخ صخقمي", 0.8)
         terminal.send(CTRL_G, 2.5)
         report.check("Arabic typed for English", draft(), "hello world")
+        clear()
+
+        # Baddel's own shortcut, bound in Claude Code's keybindings file to the same action.
+        terminal.send("ugd;l hgsghl", 0.8)
+        terminal.send(shared_key, 2.5)
+        report.check("Baddel's shortcut, bound in keybindings.json, corrects the draft", draft(), "عليكم السلام")
+        terminal.send(CTRL_UNDERSCORE, 0.8)
+        report.check("and Ctrl+_ restores it", draft(), "ugd;l hgsghl")
         clear()
 
         terminal.send("ugd;l [Image #1] hgsghl", 0.8)
@@ -481,6 +543,8 @@ exec {shlex.quote(os.path.abspath(args.bin))} --fix-draft --hint "$(cat {shlex.q
         terminal.close()
         if not remote:
             shutil.rmtree(directory, ignore_errors=True)
+            subprocess.run(["defaults", "delete", isolation["BADDEL_SETTINGS_SUITE"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) \
+                if sys.platform == "darwin" else None
     return report.finish()
 
 
@@ -500,6 +564,10 @@ def main():
     parser.add_argument("target", choices=["zsh", "bash", "pwsh", "claude"])
     parser.add_argument("--bin", required=True, help="the packaged Baddel executable")
     parser.add_argument("--script", help="the shell integration script")
+    parser.add_argument("--key", choices=["shared", "shared-meta", "ctrl-t", "command"], default="shared",
+                        help="which key to press: Baddel's own shortcut as a terminal delivers it (default), the same with "
+                             "Option as Meta (macOS), Ctrl+T set through BADDEL_KEY, or the Ctrl+T fallback when the stored "
+                             "shortcut uses Command")
     parser.add_argument("--shell", help="the shell program to start (default: the target's usual name)")
     parser.add_argument("--claude", help="the claude command (default: claude)")
     parser.add_argument("--ssh", help="run on this SSH host (Windows checks)")

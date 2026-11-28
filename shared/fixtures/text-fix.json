@@ -479,6 +479,80 @@
         "text": "error: file not found\nat main.swift line 12\nhello",
         "cursor": 49
       }
+    },
+    {
+      "name": "Claude draft: a long English previous reply does not decide the direction",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nاثممخ صخقمي",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nhello world",
+        "cursor": 259
+      }
+    },
+    {
+      "name": "Claude draft: the previous reply is never converted, whatever the layout",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nugd;l",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "latin",
+      "claude": true,
+      "expect": {
+        "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\nعليكم",
+        "cursor": 253
+      }
+    },
+    {
+      "name": "Claude draft: only a previous reply and no reply text yet",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\n# The build failed because the configuration file is missing.\n#\n# Run the setup command again and check the output.\n# ─── Write your reply below this line ──────────────────────────\n",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "latin",
+      "claude": true,
+      "expect": {
+        "reject": "nothingToConvert"
+      }
+    },
+    {
+      "name": "Claude draft: separator with Windows line endings",
+      "arabicLayout": "arabic-pc",
+      "text": "# ─── Claude's last response (for reference; removed on save) ───\r\n# The build failed because the configuration file is missing.\r\n#\r\n# Run the setup command again and check the output.\r\n# ─── Write your reply below this line ──────────────────────────\r\nاثممخ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": null,
+      "claude": true,
+      "expect": {
+        "text": "# ─── Claude's last response (for reference; removed on save) ───\r\n# The build failed because the configuration file is missing.\r\n#\r\n# Run the setup command again and check the output.\r\n# ─── Write your reply below this line ──────────────────────────\r\nhello",
+        "cursor": 258
+      }
+    },
+    {
+      "name": "without the Claude rule the same comment block is ordinary text",
+      "arabicLayout": "arabic-pc",
+      "text": "# note\nاثممخ",
+      "mode": "line",
+      "unit": "utf16",
+      "cursor": null,
+      "selection": null,
+      "hint": "arabic",
+      "claude": false,
+      "expect": {
+        "text": "# note\nhello",
+        "cursor": 12
+      }
     }
   ]
 }
