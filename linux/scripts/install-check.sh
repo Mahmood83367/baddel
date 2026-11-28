@@ -113,6 +113,54 @@ check "uninstall.sh: settings are kept" "$(yes_no test -f "$XDG_CONFIG_HOME/badd
 mkdir -p "$HOME/.local/opt/baddel"; echo mine > "$HOME/.local/opt/baddel/notes.txt"
 "$FOLDER/install.sh" >/dev/null 2>&1
 check "install.sh refuses a folder it did not create, and leaves it alone" "$?$(cat "$HOME/.local/opt/baddel/notes.txt")" "1mine"
+rm -rf "$HOME/.local/opt"
+
+say "-- Per-user install: something else already in the way --"
+LINK="$HOME/.local/bin/baddel"; ENTRY="$XDG_DATA_HOME/applications/app.baddel.Baddel.desktop"
+# A snapshot of everything under the throwaway home: names, types, link targets and contents.
+snapshot() { (cd "$HOME" && find . \( -type f -o -type l -o -type d \) | sort | while read -r item; do
+  if [ -L "$item" ]; then echo "$item -> $(readlink "$item")"; elif [ -f "$item" ]; then echo "$item $(sha256sum < "$item")"; else echo "$item/"; fi; done) | sha256sum; }
+# name, then a command that puts the obstacle in place
+collision() {
+  local name=$1; shift
+  rm -rf "$HOME/.local" "$WORK/ran"; mkdir -p "$HOME/.local/bin" "$XDG_DATA_HOME/applications"
+  "$@"
+  local before; before=$(snapshot)
+  "$FOLDER/install.sh" > "$WORK/collision.log" 2>&1
+  check "$name: install.sh stops with an error" "$?" 1
+  check "$name: nothing under the home folder was created, changed or removed" "$(snapshot)" "$before"
+  check "$name: nothing that was already there was run" "$(yes_no test -e "$WORK/ran")" no
+}
+foreign_program() { printf '#!/bin/sh\ntouch "%s"\n' "$WORK/ran" > "$LINK"; chmod 755 "$LINK"; }
+foreign_link() { printf '#!/bin/sh\ntouch "%s"\n' "$WORK/ran" > "$WORK/other-program"; chmod 755 "$WORK/other-program"; ln -s "$WORK/other-program" "$LINK"; }
+dangling_link() { ln -s "$WORK/does-not-exist" "$LINK"; }
+folder_in_the_way() { mkdir "$LINK"; echo keep > "$LINK/file"; }
+foreign_entry() { printf '[Desktop Entry]\nType=Application\nName=Mine\nExec=/usr/bin/true\n' > "$ENTRY"; }
+linked_entry() { printf '[Desktop Entry]\nType=Application\nName=Mine\nExec=/usr/bin/true\nX-Baddel-User-Install=true\n' > "$WORK/entry-elsewhere"; ln -s "$WORK/entry-elsewhere" "$ENTRY"; }
+entry_folder() { mkdir "$ENTRY"; }
+collision "another program at ~/.local/bin/baddel" foreign_program
+collision "a link to another program at ~/.local/bin/baddel" foreign_link
+collision "a dangling link at ~/.local/bin/baddel" dangling_link
+collision "a folder at ~/.local/bin/baddel" folder_in_the_way
+collision "a menu entry Baddel did not write" foreign_entry
+collision "a menu entry that is a link, even one carrying the marker" linked_entry
+collision "a folder where the menu entry goes" entry_folder
+# Both at once, and the owned case still works afterwards.
+both() { foreign_program; foreign_entry; }
+collision "another program and a foreign menu entry together" both
+rm -rf "$HOME/.local"
+"$FOLDER/install.sh" >/dev/null 2>&1
+check "with nothing in the way it installs" "$?$(readlink "$LINK")" "0$HOME/.local/opt/baddel/baddel"
+"$FOLDER/install.sh" >/dev/null 2>&1
+check "its own link and menu entry are accepted on a second run" "$?$(grep -c '^X-Baddel-User-Install=true$' "$ENTRY")" "01"
+# An owned installation with a foreign launcher put in its place afterwards: still refused, and not run.
+rm -f "$LINK"; foreign_program; before=$(snapshot)
+"$FOLDER/install.sh" >/dev/null 2>&1
+check "an owned installation whose launcher was replaced by another program: refused, unchanged, not run" \
+  "$?$([ "$(snapshot)" = "$before" ] && echo same)$(yes_no test -e "$WORK/ran")" "1sameno"
+rm -f "$LINK"; ln -s "$HOME/.local/opt/baddel/baddel" "$LINK"
+"$HOME/.local/opt/baddel/uninstall.sh" >/dev/null 2>&1
+check "uninstall.sh removes the owned installation again" "$?$(yes_no test -e "$HOME/.local/opt/baddel")$(yes_no test -e "$ENTRY")" "0nono"
 
 say "RESULT $([ "$failures" -eq 0 ] && echo pass || echo "fail ($failures)")"
 exit "$failures"

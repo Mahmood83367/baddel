@@ -55,8 +55,11 @@ root, and upgrading replaces the program only. Build it with
 
 `install.sh` copies the folder to `~/.local/opt/baddel`, links
 `~/.local/bin/baddel` and adds a menu entry under `~/.local/share`. Running a
-newer archive's `install.sh` upgrades. It refuses a `~/.local/opt/baddel` it
-did not create. For RPM-based and other distributions this is the supported
+newer archive's `install.sh` upgrades. Before it writes or runs anything it
+checks all three places: an installation folder, a `~/.local/bin/baddel` or a
+menu entry that it did not create itself (another program, a link pointing
+elsewhere, a folder) makes it stop without changing anything, and the only
+program it ever runs is the Baddel inside its own installation folder. For RPM-based and other distributions this is the supported
 route for now; a package for them would be a thin wrapper around the same
 layout as the `.deb`, and has not been built or tested.
 

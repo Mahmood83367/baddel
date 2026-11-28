@@ -44,7 +44,7 @@ unpaired surrogate is refused before anything is deleted; text read from an
 application is decoded strictly, so bytes that are not UTF-8 are refused
 instead of becoming U+FFFD, while a real U+FFFD in the text is kept.
 
-**Install check** (`linux/scripts/install-check.sh`, 36 checks, all passed):
+**Install check** (`linux/scripts/install-check.sh`, all checks passed):
 
 | Scenario | Result |
 |---|---|
@@ -55,6 +55,8 @@ instead of becoming U+FFFD, while a real U+FFFD in the text is kept.
 | Upgrade to a higher-versioned package: settings and the Start at login entry are byte-identical, the settings are still read, nothing is started | Passed |
 | `apt remove`: package, program, `/opt/baddel` and menu entry are gone; settings are kept; a leftover Start at login entry starts nothing | Passed |
 | Per-user `install.sh` from the archive, run again as an upgrade, `uninstall.sh`; a `~/.local/opt/baddel` it did not create is refused and left alone | Passed |
+| Something else already in the way of the per-user install: another program, a link to another program, a dangling link or a folder at `~/.local/bin/baddel`; a menu entry Baddel did not write, one that is a link, or a folder in its place; two of these together. Each time `install.sh` stops with an error, the home folder is identical before and after (names, types, link targets, contents), and nothing already there was run | Passed |
+| An owned installation whose launcher was later replaced by another program: refused, unchanged, not run. Its own link and menu entry are accepted on a second run | Passed |
 
 Not verified:
 
