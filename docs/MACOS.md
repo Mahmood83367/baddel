@@ -7,9 +7,9 @@ Requires macOS 13 or later, on Apple silicon or Intel.
 There is one place for Baddel: `/Applications/Baddel.app`. Keep a single copy
 there.
 
-**Installer (`.pkg`).** Offered only for releases where the package is signed
-with an Apple Developer ID and notarized by Apple. Open it and follow the
-steps. It:
+**Installer (`.pkg`).** The download from 0.2.2 on: signed with the Developer
+ID of HEALTH 360 AI LTD and notarized by Apple. An installer is only ever
+offered when both are true. Open it and follow the steps. It:
 
 - copies `Baddel.app` to the Applications folder of the startup disk, and
   nowhere else, even if another copy of Baddel exists on the disk;
@@ -19,8 +19,9 @@ steps. It:
 - installs no background service, launch agent or daemon;
 - does not turn on opening at login and changes no permission.
 
-**ZIP.** Unzip it and move `Baddel.app` to Applications yourself. The result is
-the same.
+**ZIP.** Versions up to 0.2.1 came as a ZIP with an app that was not signed
+with a developer identity: unzip it and move `Baddel.app` to Applications
+yourself.
 
 A package that is not signed and notarized is never published as the
 installer. If a file named `…-TEST-ONLY-…​.pkg` reaches you, it is a
@@ -134,4 +135,5 @@ See [TESTING.md](TESTING.md). In short: installing, upgrading over the 0.1.0
 and 0.2.0 previews, the Open at Login switch and uninstalling are run on a
 throwaway macOS machine in CI with an unsigned test package. A real logout and
 login has not been performed, and the signed, notarized installer has not been
-built yet.
+installed on a Mac as part of testing; its signature, notarization ticket and
+Gatekeeper assessment are checked for each release.

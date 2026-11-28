@@ -66,7 +66,7 @@ credential):
 |---|---|---|
 | `BADDEL_SIGN_IDENTITY` | Developer ID **Application** identity, signs the app | Present (Health360 team) |
 | `BADDEL_INSTALLER_IDENTITY` | Developer ID **Installer** identity, signs the package | Present (same team), since 0.2.2 |
-| `BADDEL_NOTARY_PROFILE` | `notarytool` keychain profile for the same team | **Not configured** |
+| `BADDEL_NOTARY_PROFILE` | `notarytool` keychain profile for the same team | Present (`baddel-notary`), since 0.2.2 |
 
 A signing identity is not a notarization credential; the profile is separate
 and is created once with `xcrun notarytool store-credentials`.

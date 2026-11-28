@@ -24,15 +24,16 @@ identities in the login keychain used in place by `codesign` and
 | `installer -volinfo` and `-dominfo`: installable on this volume, system domain | Passed |
 | Gatekeeper installer assessment before notarization | Rejected as "Unnotarized Developer ID", as expected |
 
+These checks were made on a build from the pull-request branch. The published
+0.2.2 installer is built again, signed and notarized from the tagged commit on
+`main`; Apple's answer, the stapled ticket, Gatekeeper's installer assessment
+and the final SHA-256 are stated in the 0.2.2 release notes.
+
 Not done:
 
-- **Notarization.** No `notarytool` keychain profile exists on the release
-  Mac, so the package was not submitted to Apple and has no stapled ticket.
-  The signed package keeps its `TEST-ONLY-not-notarized` name until Apple has
-  accepted it.
-- **Installing it.** That needs an administrator password. The install,
-  upgrade, Open at Login and uninstall path is exercised in CI with the
-  unsigned build of the same package.
+- **Installing it on the release Mac.** That needs an administrator password.
+  The install, upgrade, Open at Login and uninstall path is exercised in CI
+  with the unsigned build of the same package.
 
 ## Added in 0.2.1
 

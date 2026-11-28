@@ -25,31 +25,24 @@ Baddel skips password fields and fields it cannot edit safely. [Tested environme
 
 ## Download and install
 
-Choose the package for your platform from the download page. The current release is `0.2.1`, for macOS, Windows and Linux. Each release lists its signing status and SHA-256 checksums: the macOS app is ad-hoc signed and not notarized by Apple, and the Windows app is not code-signed, so both systems warn before the first start. Version `0.2.2`, a signed macOS installer, is prepared but **not published yet**; see below. [Download page](https://mahmoood.com/baddel/) · [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.1)
+Choose the package for your platform from the download page. The current release is `0.2.2`, for macOS, Windows and Linux. Each release lists its signing status and SHA-256 checksums. The macOS installer is signed with the Developer ID of HEALTH 360 AI LTD and notarized by Apple. The Windows app is not code-signed, so SmartScreen may warn before the first start, and the Linux packages are not signed. [Download page](https://mahmoood.com/baddel/) · [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.2)
 
 ### macOS
 
-**Coming in `0.2.2`: a signed installer (pending).** The macOS app and a `.pkg` installer for `0.2.2` have been signed with the Developer ID of HEALTH 360 AI LTD (team 7NGNGSXQK5). The installer is waiting for Apple's notarization and is not published or downloadable yet. Until it is, `0.2.1` below is the current macOS download. Once `0.2.2` is released, installing will be:
-
 1. Open `Baddel-0.2.2-macos-universal.pkg`. If Baddel is running, Installer asks you to quit it first. The package installs one thing, `Baddel.app` in **Applications**, and runs no scripts.
-2. Open Baddel from **Applications** and allow it under **System Settings → Privacy & Security → Accessibility**. Because the signing identity changes from `0.2.1`, macOS asks for this once more after the upgrade.
-3. To start it with your Mac, turn on **Open Baddel at login** in Baddel's Settings. The installer does not turn it on for you.
-
-**Current release, `0.2.1` (ZIP):**
-
-1. Extract the macOS ZIP and move `Baddel.app` to **Applications**. Run it from there: a copy started from **Downloads** is run by macOS from a temporary location, and its Accessibility permission does not stick.
 2. Open Baddel from **Applications**. Its icon appears in the menu bar.
 3. Enable Baddel in **System Settings → Privacy & Security → Accessibility**. Baddel needs this permission to edit the focused field.
+4. To start it with your Mac, turn on **Open Baddel at login** in Baddel's Settings. The installer does not turn it on. You can also switch it under **System Settings → General → Login Items**.
 
-If upgrading from an older preview leaves you with a stale Accessibility entry, select Baddel in the **Accessibility** list, press **−**, then add and allow the copy in **Applications**. The permission window also has a **Remove Old Entry…** button. macOS warns when opening Baddel because this release has no Apple notarization. Verify the published checksum and follow Apple's instructions if you choose to open it. [Apple's instructions](https://support.apple.com/en-us/102445)
+**Upgrading from `0.2.1` or earlier.** Those versions came as a ZIP and were not signed with a developer identity, so macOS treats `0.2.2` as a different app for Accessibility. After installing, open the new Baddel, click **Remove Old Entry…** in its permission window (or select Baddel in the **Accessibility** list and press **−**), then allow it again. If you kept an old copy outside **Applications**, for example in **Downloads**, quit it and move it to the Trash so only one Baddel runs.
 
-In Claude, ChatGPT and other Chromium-based apps, the first press can take about a second: those apps describe their text fields only when asked, and Baddel asks then. If a field is refused, the message says why. (Version `0.2.0` answered "This field isn't supported" there after a restart.) [Details](docs/MACOS.md#claude-chatgpt-and-other-web-based-apps)
+**Signing.** The app and the installer are signed by HEALTH 360 AI LTD (team 7NGNGSXQK5) and notarized by Apple, so macOS opens the installer without a warning. To check a download yourself: `pkgutil --check-signature Baddel-0.2.2-macos-universal.pkg` and `spctl --assess --type install -vv Baddel-0.2.2-macos-universal.pkg`. Uninstalling is described in the [macOS guide](docs/MACOS.md).
 
-**Open Baddel at login** is in Settings. It works for the copy in **Applications**. Turn it on or off there or under **System Settings → General → Login Items**. [macOS guide](docs/MACOS.md)
+In Claude, ChatGPT and other Chromium-based apps, the first press can take about a second: those apps describe their text fields only when asked, and Baddel asks then. If a field is refused, the message says why. [Details](docs/MACOS.md#claude-chatgpt-and-other-web-based-apps)
 
 ### Windows
 
-Extract the whole ZIP to a permanent folder and run `Baddel.exe`. The package includes the .NET runtime. Right-click the Baddel icon by the clock for Settings. The app is not code-signed, so SmartScreen may warn before it opens. [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.1)
+Extract the whole ZIP to a permanent folder and run `Baddel.exe`. The package includes the .NET runtime. Right-click the Baddel icon by the clock for Settings. The app is not code-signed, so SmartScreen may warn before it opens. [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.2)
 
 ### Linux
 
@@ -58,7 +51,7 @@ The Linux build is a prototype for 64-bit x86, tested by automation on Ubuntu 24
 **Debian, Ubuntu and derivatives:**
 
 ```bash
-sudo apt install ./baddel_0.2.1_amd64.deb
+sudo apt install ./baddel_0.2.2_amd64.deb
 ```
 
 **Any other distribution, for your user only, without root:** unpack the `x64` archive and run its installer.
