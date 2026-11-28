@@ -238,7 +238,7 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y -q xvfb xdotool openbox dbus-x11 at-spi2-core libatspi2.0-0 libatspi2.0-dev \
             libxkbcommon0 libx11-6 x11-xkb-utils xkb-data xfonts-base python3-gi gir1.2-gtk-3.0 gsettings-desktop-schemas \
-            xterm gnome-terminal xfce4-terminal x11-utils python3-xlib
+            xterm gnome-terminal xfce4-terminal x11-utils python3-xlib python3-pyqt5 gir1.2-gtk-4.0 dex desktop-file-utils
       - name: Test core on Linux
         run: dotnet test windows/tests/Baddel.Core.Tests/Baddel.Core.Tests.csproj
       - name: Check AT-SPI constants against the installed header
@@ -276,12 +276,49 @@ jobs:
         run: |
           RESULTS_FILE="$PWD/dist/linux-x11-smoke.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
             linux/scripts/x11-smoke.sh dist/check/Baddel-*-linux-x64-prototype/baddel
+      # A Debian package from the same archive, and a second one with a higher
+      # version that exists only to test upgrading.
+      - name: Build the Debian package
+        run: |
+          linux/scripts/package-deb.sh
+          BADDEL_DEB_VERSION="$(cat VERSION)+upgradecheck" linux/scripts/package-deb.sh
+          sha256sum -c dist/baddel_$(cat VERSION)_amd64.deb.sha256 --ignore-missing || (cd dist && sha256sum -c baddel_$(cat ../VERSION)_amd64.deb.sha256)
+          dpkg-deb --info dist/baddel_$(cat VERSION)_amd64.deb
+      - name: Install, upgrade, Start at login and removal on this throwaway runner
+        run: |
+          RESULTS_FILE="$PWD/dist/linux-install-checks.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
+            linux/scripts/install-check.sh dist/baddel_$(cat VERSION)_amd64.deb "dist/baddel_$(cat VERSION)+upgradecheck_amd64.deb" \
+            dist/Baddel-*-linux-x64-prototype.tar.gz 2>/dev/null
+      # Every byte of the result, and of the text Undo puts back, in GTK and Qt fields.
+      - name: Exact text in GTK and Qt fields
+        run: |
+          RESULTS_FILE="$PWD/dist/linux-text-fidelity.txt" dbus-run-session -- xvfb-run -a -s "-screen 0 1280x800x24" \
+            linux/scripts/text-fidelity-check.sh dist/check/Baddel-*-linux-x64-prototype/baddel 2>/dev/null
+      # The same check inside a Wayland session (headless Weston), where Baddel
+      # has no shortcut of its own and is driven by `baddel --trigger`. Recorded,
+      # not required: a headless compositor has no keyboard, so whether a field
+      # counts as focused there is itself part of what is being found out.
+      - name: Exact text in GTK fields in a Wayland session (informational)
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y -q weston >/dev/null
+          export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+          dbus-run-session -- bash -c '
+            weston --backend=headless --socket=baddel-check --idle-time=0 >/dev/null 2>&1 &
+            sleep 3
+            env -u DISPLAY WAYLAND_DISPLAY=baddel-check XDG_SESSION_TYPE=wayland GDK_BACKEND=wayland \
+              BADDEL_FIDELITY_SESSION=wayland BADDEL_FIDELITY_TARGETS="gtk3 entry;gtk4 entry;gtk4 textview" \
+              RESULTS_FILE="$PWD/dist/linux-text-fidelity-wayland.txt" \
+              linux/scripts/text-fidelity-check.sh dist/check/Baddel-*-linux-x64-prototype/baddel 2>/dev/null'
       - uses: actions/upload-artifact@v4
         with:
           name: baddel-linux-prototype
           path: |
             dist/Baddel-*-linux-x64-prototype.tar.gz
             dist/Baddel-*-linux-x64-prototype.tar.gz.sha256
+            dist/baddel_*_amd64.deb
+            dist/baddel_*_amd64.deb.sha256
+            !dist/baddel_*upgradecheck*
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
@@ -290,4 +327,7 @@ jobs:
           path: |
             dist/linux-x11-smoke.txt
             dist/linux-terminal-windows.txt
+            dist/linux-text-fidelity.txt
+            dist/linux-install-checks.txt
+            dist/linux-text-fidelity-wayland.txt
           if-no-files-found: ignore

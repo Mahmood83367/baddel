@@ -38,6 +38,14 @@ public sealed class LinuxSettings
     public bool SwitchLayout { get; set; } = true;
 
     /// <summary>
+    /// Qt and KDE applications describe their text fields only while the desktop's
+    /// accessibility switch (org.a11y.Status IsEnabled) is on. When this is true,
+    /// Baddel turns the switch on at start if it is off. It never turns it off; the
+    /// switch lasts for the login session. Set to false to leave it alone.
+    /// </summary>
+    public bool EnableDesktopAccessibility { get; set; } = true;
+
+    /// <summary>
     /// "automatic" (default), "on" or "off": whether the shortcut is left to terminal
     /// windows so the shell integration can use the same key. See TerminalSharing.
     /// </summary>
@@ -403,6 +411,11 @@ public sealed class Session
             Say("status=error reason=accessibility-bus-unavailable");
             return 2;
         }
+        return RunSession(settings.EnableDesktopAccessibility ? DesktopAccessibility.TurnOn() : "left-alone");
+    }
+
+    private int RunSession(string accessibility)
+    {
         using var listener = TriggerChannel.Listen(triggers);
         if (listener is null)
         {
@@ -434,6 +447,7 @@ public sealed class Session
         // shortcut comes from the desktop (bound to `baddel --trigger`) and no
         // popup is shown; Undo is `baddel --undo`.
         Say($"status=ready session={(IsWayland ? "wayland" : display != IntPtr.Zero ? "x11" : "none")} shortcut={shortcutMode} "
+            + $"desktopAccessibility={accessibility} "
             + $"layouts={pair.Latin.Id},{pair.Arabic.Id} "
             + $"xkbGroups={string.Join("|", sessionGroups.Select(g => g.Variant.Length > 0 ? $"{g.Layout}({g.Variant})" : g.Layout))}");
 
@@ -656,7 +670,12 @@ public sealed class Session
         }
         else
         {
-            Say(new DiagnosticEvent(DiagnosticKind.Rejected, mode, result.Rejection ?? Rejection.WriteFailed).Summary);
+            // Says which kind of refusal this was, in codes: what the search found
+            // when there was no field, or why the field cannot be edited.
+            var detail = field is AtspiField known
+                ? $"role={known.RoleName.Replace(' ', '-')}" + (known.UnsupportedReason is { } reason ? $" unsupported={reason}" : string.Empty)
+                : focus.LastReport;
+            Say(new DiagnosticEvent(DiagnosticKind.Rejected, mode, result.Rejection ?? Rejection.WriteFailed).Summary + $" detail=[{detail}]");
         }
     }
 
@@ -741,5 +760,66 @@ public sealed class Session
         X11.XUnmapWindow(display, popup);
         X11.XFlush(display);
         popupVisible = false;
+    }
+}
+
+/// <summary>
+/// The desktop's accessibility switch, <c>org.a11y.Status IsEnabled</c> on the
+/// session bus. GTK applications answer accessibility requests regardless of it;
+/// Qt and KDE applications only register while it is on. Screen readers turn it
+/// on the same way.
+///
+/// Baddel only ever turns it on, through <c>gdbus</c> (part of GLib's tools), and
+/// only when it is off. It never turns it off: once on, another assistive tool
+/// may have come to rely on it, and Baddel cannot tell. The switch belongs to the
+/// login session, so it is off again after the next login unless something turns
+/// it on. <c>"EnableDesktopAccessibility": false</c> keeps Baddel from touching it.
+/// </summary>
+public static class DesktopAccessibility
+{
+    private static string? Gdbus(params string[] arguments)
+    {
+        try
+        {
+            var info = new ProcessStartInfo("gdbus") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
+            foreach (var argument in new[] { "call", "--session", "--timeout", "2", "--dest", "org.a11y.Bus", "--object-path", "/org/a11y/bus", "--method" })
+            {
+                info.ArgumentList.Add(argument);
+            }
+            foreach (var argument in arguments) info.ArgumentList.Add(argument);
+            using var process = Process.Start(info);
+            if (process is null) return null;
+            var output = process.StandardOutput.ReadToEnd();
+            if (!process.WaitForExit(4000))
+            {
+                process.Kill();
+                return null;
+            }
+            return process.ExitCode == 0 ? output : null;
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary><c>true</c>, <c>false</c>, or <c>null</c> when the switch cannot be read.</summary>
+    public static bool? IsOn()
+    {
+        var answer = Gdbus("org.freedesktop.DBus.Properties.Get", "org.a11y.Status", "IsEnabled");
+        return answer is null ? null : answer.Contains("true", StringComparison.Ordinal);
+    }
+
+    /// <returns>A code for the status line: already-on, turned-on, or unavailable.</returns>
+    public static string TurnOn()
+    {
+        switch (IsOn())
+        {
+            case true: return "already-on";
+            case null: return "unavailable";
+        }
+        return Gdbus("org.freedesktop.DBus.Properties.Set", "org.a11y.Status", "IsEnabled", "<true>") is not null && IsOn() == true
+            ? "turned-on"
+            : "unavailable";
     }
 }

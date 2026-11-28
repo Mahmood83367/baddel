@@ -5,7 +5,7 @@ import sys
 
 HEADER = "/usr/include/at-spi-2.0/atspi/atspi-constants.h"
 EXPECTED = {
-    "AtspiStateType": {"ATSPI_STATE_ACTIVE": 1, "ATSPI_STATE_EDITABLE": 7, "ATSPI_STATE_ENABLED": 8, "ATSPI_STATE_FOCUSED": 12},
+    "AtspiStateType": {"ATSPI_STATE_ACTIVE": 1, "ATSPI_STATE_EDITABLE": 7, "ATSPI_STATE_ENABLED": 8, "ATSPI_STATE_FOCUSED": 12, "ATSPI_STATE_SENSITIVE": 24},
     "AtspiRole": {"ATSPI_ROLE_PASSWORD_TEXT": 40},
     "AtspiCoordType": {"ATSPI_COORD_TYPE_SCREEN": 0},
 }

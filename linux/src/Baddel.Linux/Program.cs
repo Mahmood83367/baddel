@@ -41,6 +41,8 @@ internal static class Program
                     + "baddel --undo          undo the last correction\n"
                     + "baddel --quit          stop the running Baddel\n"
                     + "baddel --self-check    report what this session supports\n"
+                    + "baddel --autostart status|enable|disable   start Baddel at login (off unless you enable it)\n"
+                    + "baddel --focus-report [seconds]   what the accessibility bus shows as focused (no text)\n"
                     + "baddel --check-updates [stable|preview]   look for a newer release (installs nothing)\n"
                     + "baddel --fix-text …    correct a shell command line (used by shell/baddel.bash)\n"
                     + "baddel --fix-draft FILE   correct a Claude Code draft (used as its external editor)\n"
@@ -58,6 +60,19 @@ internal static class Program
                 return DumpLayout(args.ElementAtOrDefault(1) ?? "us", args.ElementAtOrDefault(2));
             case "--self-check":
                 return SelfCheck();
+            case "--autostart":
+                // Start Baddel at login: status, enable or disable. See Autostart.
+                return Autostart.RunCommand(args.ElementAtOrDefault(1));
+            case "--focus-report":
+                // What Baddel sees through the accessibility bus right now: toolkits,
+                // windows and focused elements with their roles. No text is read.
+                // `baddel --focus-report 3` waits three seconds first, to let you
+                // click into the field in question.
+                if (int.TryParse(args.ElementAtOrDefault(1), out var wait) && wait is > 0 and <= 60) System.Threading.Thread.Sleep(wait * 1000);
+                Console.WriteLine($"session={(Session.IsWayland ? "wayland" : string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY")) ? "none" : "x11")}");
+                Console.WriteLine($"desktopAccessibilitySwitch={(DesktopAccessibility.IsOn() switch { true => "on", false => "off (Qt and KDE applications stay invisible until it is on; a running Baddel turns it on)", null => "unreadable" })}");
+                foreach (var line in AtspiFocus.Describe()) Console.WriteLine(line);
+                return 0;
             case "--check-updates":
                 return CheckUpdates(args.ElementAtOrDefault(1));
             case "--socket-path":

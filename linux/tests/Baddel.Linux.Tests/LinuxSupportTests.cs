@@ -8,6 +8,94 @@ namespace Baddel.Linux.Tests;
 public class LinuxSupportTests
 {
     [Fact]
+    public void StartAtLoginWritesOnlyItsOwnFile()
+    {
+        var directory = Directory.CreateTempSubdirectory("baddel-autostart-test");
+        try
+        {
+            var file = Path.Combine(directory.FullName, "autostart", Autostart.FileName);
+            var program = Path.Combine(directory.FullName, "baddel");
+            File.WriteAllText(program, "");
+
+            Assert.Equal(Autostart.State.Off, Autostart.Read(file));
+            Assert.Null(Autostart.Disable(file));
+            Assert.False(File.Exists(file));
+
+            Assert.Null(Autostart.Enable(program, file));
+            Assert.Equal(Autostart.State.On, Autostart.Read(file));
+            var entry = File.ReadAllText(file);
+            Assert.Contains("[Desktop Entry]\nType=Application\n", entry);
+            Assert.Contains($"Exec={program}\n", entry);
+            Assert.Contains($"TryExec={program}\n", entry);
+
+            // Enabling twice is harmless, and a removed program is reported, not started.
+            Assert.Null(Autostart.Enable(program, file));
+            File.Delete(program);
+            Assert.Equal(Autostart.State.Stale, Autostart.Read(file));
+            Assert.Null(Autostart.Disable(file));
+            Assert.False(File.Exists(file));
+
+            // A file somebody else put there is neither replaced nor removed.
+            File.WriteAllText(file, "[Desktop Entry]\nType=Application\nExec=/usr/bin/true\n");
+            Assert.Equal(Autostart.State.Foreign, Autostart.Read(file));
+            Assert.Equal("anotherFileIsInTheWay", Autostart.Enable(program, file));
+            Assert.Equal("notBaddelsFile", Autostart.Disable(file));
+            Assert.Equal("[Desktop Entry]\nType=Application\nExec=/usr/bin/true\n", File.ReadAllText(file));
+
+            // A path with a space is quoted for Exec and left plain for TryExec.
+            Assert.Contains("Exec=\"/opt/my apps/baddel\"\nTryExec=/opt/my apps/baddel\n", Autostart.Entry("/opt/my apps/baddel"));
+        }
+        finally
+        {
+            directory.Delete(recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// libatspi sends inserted text on as a C string. Without a terminating NUL the
+    /// application also receives whatever follows the array in memory. A .NET byte
+    /// array is padded with zero bytes up to a multiple of eight, so only text whose
+    /// UTF-8 length is a multiple of eight was exposed: every four-letter Arabic
+    /// word, for one.
+    /// </summary>
+    [Fact]
+    public void TextForNativeCallsEndsWithOneNul()
+    {
+        foreach (var text in new[] { "اريد", "اروح", "عليكم", "hello", "اريد اروح", "😀👍🏽", "cafe\u0301", "a\u200fb", "line\nline" })
+        {
+            var bytes = NativeText.NulTerminatedUtf8(text)!;
+            var utf8 = System.Text.Encoding.UTF8.GetBytes(text);
+            Assert.Equal(utf8.Length + 1, bytes.Length);
+            Assert.Equal(0, bytes[^1]);
+            Assert.Equal(utf8, bytes[..^1]);
+            Assert.DoesNotContain((byte)0, utf8);
+        }
+        // The reported words are exactly the exposed case.
+        Assert.Equal(8, System.Text.Encoding.UTF8.GetByteCount("اريد"));
+        Assert.Equal(8, System.Text.Encoding.UTF8.GetByteCount("اروح"));
+        // Text that cannot be a C string, or has no UTF-8 form, is refused instead of being cut or altered.
+        Assert.Null(NativeText.NulTerminatedUtf8("a\0b"));
+        Assert.Null(NativeText.NulTerminatedUtf8("a\ud83d"));
+        Assert.Null(NativeText.NulTerminatedUtf8("\udc00b"));
+    }
+
+    /// <summary>
+    /// Text read from an application is decoded strictly: bytes that are not UTF-8
+    /// are refused rather than turned into U+FFFD. A U+FFFD that really is in the
+    /// text is ordinary, valid text and is kept.
+    /// </summary>
+    [Fact]
+    public void TextFromAnApplicationIsDecodedStrictly()
+    {
+        Assert.Equal("اريد اروح", NativeText.StrictUtf8(System.Text.Encoding.UTF8.GetBytes("اريد اروح")));
+        Assert.Equal("a\ufffdb", NativeText.StrictUtf8(new byte[] { 0x61, 0xEF, 0xBF, 0xBD, 0x62 }));
+        Assert.Equal("😀", NativeText.StrictUtf8(new byte[] { 0xF0, 0x9F, 0x98, 0x80 }));
+        Assert.Null(NativeText.StrictUtf8(new byte[] { 0x61, 0xFF, 0x62 }));
+        Assert.Null(NativeText.StrictUtf8(new byte[] { 0xD8, 0xA7, 0xD8 }));        // cut in the middle of a letter
+        Assert.Null(NativeText.StrictUtf8(new byte[] { 0xED, 0xA0, 0x80 }));        // an encoded surrogate
+    }
+
+    [Fact]
     public void CharacterOffsetsConvertToUtf16AndBack()
     {
         const string text = "😀 ugd;l";

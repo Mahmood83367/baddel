@@ -7,6 +7,73 @@ it are the 0.1.0 record, which still applies.
 
 ## Added in 0.2.1
 
+### Linux: exact text in fields, installing, Start at login
+
+All on GitHub-hosted Ubuntu 24.04 runners, with the binary from the packaged
+archive.
+
+**The report**: typing `hndv hnmp` gave the right Arabic words followed by many
+square characters.
+
+| Finding | How it was established |
+|---|---|
+| The inserted text was passed to `atspi_editable_text_insert_text` without a terminating NUL, although the function takes a C string | Read from the code and the API; fixed, with a unit test that every text handed over ends in exactly one NUL |
+| .NET pads a byte array with zeros to a multiple of eight, so only text whose UTF-8 length is a multiple of eight was exposed. Each four-letter Arabic word is eight bytes | Unit test asserts the reported words are eight bytes |
+| The trailing characters themselves | **Not reproduced.** In CI the bytes after the array happened to be zero in every run, in GTK 3 and GTK 4. What follows an array in memory varies from run to run, which fits a fault seen on one machine and not another |
+| GTK 4 fields were refused as "disabled" (GTK 4 reports the sensitive state, not enabled) | Reproduced in CI, fixed, GTK 4 entry and text view now pass every case |
+| Qt applications are not on the accessibility bus unless the desktop's accessibility switch is on | The new `--focus-report` showed `applications=0` for a Qt window. Baddel now turns the switch on. In CI a Qt application still did not appear with the switch on, so Qt fields remain unverified |
+
+**Byte-exact check** (`linux/scripts/text-fidelity-check.sh`, X11 under Xvfb):
+after a correction the field must equal the engine's own result in every byte,
+and after Undo the original in every byte. Cases: the reported phrase (whole
+field and last word), a second phrase, Arabic typed for English with Arabic
+punctuation and Arabic-Indic digits, a right-to-left mark, emoji with a
+skin-tone modifier, last word after emoji, a combining mark, and for
+multi-line fields three lines (whole field, and last word on the last line).
+
+| Field | Result |
+|---|---|
+| GTK 3 entry, GTK 3 text view | Passed, every case and every Undo |
+| GTK 4 entry, GTK 4 text view | Passed, every case and every Undo |
+| Qt 5 line edit, plain text edit, text edit | Skipped: the application was not on the accessibility bus |
+| An application that accepts the deletion and refuses the insertion | The deleted text is put back byte for byte; reported as `WriteFailed` |
+| New text arriving while the correction is being verified | Nothing is deleted, the new text stays; reported as `VerificationFailed` |
+
+Unit tests: text for native calls ends in one NUL; a string with a NUL or an
+unpaired surrogate is refused before anything is deleted; text read from an
+application is decoded strictly, so bytes that are not UTF-8 are refused
+instead of becoming U+FFFD, while a real U+FFFD in the text is kept.
+
+**Install check** (`linux/scripts/install-check.sh`, all checks passed):
+
+| Scenario | Result |
+|---|---|
+| The `.deb` has no installation scripts and installs only under `/opt/baddel`, `/usr/bin` and `/usr/share` | Passed |
+| Clean `apt install`: program on the PATH, menu entry valid, icon and Bash integration present, nothing started, Start at login off, nothing in `/etc/xdg/autostart` | Passed |
+| `--autostart enable` and `disable`; the entry is valid and names `/usr/bin/baddel`; a same-named file Baddel did not write is neither replaced nor removed | Passed |
+| A login-style start: `dex --autostart` runs exactly that entry, Baddel is running, answers `--quit` and stops | Passed |
+| Upgrade to a higher-versioned package: settings and the Start at login entry are byte-identical, the settings are still read, nothing is started | Passed |
+| `apt remove`: package, program, `/opt/baddel` and menu entry are gone; settings are kept; a leftover Start at login entry starts nothing | Passed |
+| Per-user `install.sh` from the archive, run again as an upgrade, `uninstall.sh`; a `~/.local/opt/baddel` it did not create is refused and left alone | Passed |
+| Something else already in the way of the per-user install: another program, a link to another program, a dangling link or a folder at `~/.local/bin/baddel`; a menu entry Baddel did not write, one that is a link, or a folder in its place; two of these together. Each time `install.sh` stops with an error, the home folder is identical before and after (names, types, link targets, contents), and nothing already there was run | Passed |
+| An owned installation whose launcher was later replaced by another program: refused, unchanged, not run. Its own link and menu entry are accepted on a second run | Passed |
+
+Not verified:
+
+- **Any real desktop session, and a real logout and login.** The login step
+  runs the autostart entry the way a session does; no session was logged into.
+- **Wayland.** The check was run inside a headless Weston session: Baddel
+  started in trigger-only mode, but no field counted as focused there (a
+  headless compositor has no keyboard), so nothing was learned about fields.
+- **Qt and KDE fields**, browsers, Electron apps, LibreOffice.
+- **The reporter's own layout.** `hndv hnmp` gives `اريد اروح` on their
+  machine; with the stock `ara` layout it gives other letters. The check keeps
+  the phrase as reported and compares against the engine's result for the
+  layout in use.
+- "Some symbols do not paste": the Linux build has no clipboard or paste path,
+  so this needs the application and the steps from the reporter.
+- Other distributions and package formats, and ARM.
+
 ### Terminal: shell command line and Claude Code
 
 Run by `tools/terminal-check.py`. Each check starts its **own** shell or its
