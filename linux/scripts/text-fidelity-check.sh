@@ -1,8 +1,8 @@
 #!/bin/bash
 # Checks that a correction leaves exactly the expected text in real desktop
 # text fields: every byte, nothing added, and that Undo restores the original
-# byte for byte. Fields: GTK 3 entry and text view, Qt 5 line edit, plain text
-# edit and rich text edit, all driven through the accessibility bus (AT-SPI)
+# byte for byte. Fields: GTK 3 and GTK 4 entry and text view, Qt 5 line edit,
+# plain text edit and rich text edit, all driven through the accessibility bus (AT-SPI)
 # the way the running app does it.
 #
 #   linux/scripts/text-fidelity-check.sh <path to the baddel binary>
@@ -100,9 +100,31 @@ run_case() {  # name toolkit widget input presses
 
 RLM=$(printf '\xe2\x80\x8f')
 ACUTE=$(printf '\xcc\x81')
-for target in "gtk3 entry" "gtk3 textview" "qt5 lineedit" "qt5 plaintextedit" "qt5 textedit"; do
+available() {  # toolkit
+  case "$1" in
+    gtk3) python3 -c "import gi; gi.require_version('Gtk', '3.0'); from gi.repository import Gtk" 2>/dev/null ;;
+    gtk4) python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk" 2>/dev/null ;;
+    *) python3 -c "import PyQt5.QtWidgets" 2>/dev/null ;;
+  esac
+}
+# Whether an application of this kind shows up on the accessibility bus here at all.
+visible() {  # toolkit widget
+  pkill -f fixture_field.py 2>/dev/null; sleep 0.3
+  printf 'x' > "$WORK/in.txt"; rm -f "$WORK/out.txt"
+  python3 "$HERE/fixture_field.py" "$1" "$2" "$WORK/in.txt" "$WORK/out.txt" >/dev/null 2>&1 &
+  for _ in $(seq 1 100); do [ -f "$WORK/out.txt" ] && break; sleep 0.1; done
+  sleep 1
+  "$BADDEL" --focus-report > "$WORK/report.txt"
+  grep -q "focused role=" "$WORK/report.txt"
+}
+for target in "gtk3 entry" "gtk3 textview" "gtk4 entry" "gtk4 textview" "qt5 lineedit" "qt5 plaintextedit" "qt5 textedit"; do
   set -- $target
-  python3 -c "import sys; __import__('gi' if sys.argv[1] == 'gtk3' else 'PyQt5')" "$1" 2>/dev/null || { say "SKIP $target: toolkit bindings not installed"; continue; }
+  available "$1" || { say "SKIP $target: toolkit bindings not installed"; continue; }
+  if ! visible "$1" "$2"; then
+    say "SKIP $target: the application does not appear on the accessibility bus in this session [$(tr '\n' ' ' < "$WORK/report.txt" | cut -c1-200)]"
+    continue
+  fi
+  say "== $target: $(grep 'focused role=' "$WORK/report.txt" | head -1 | sed 's/^ *//')"
   run_case "the reported phrase, whole field" "$1" "$2" 'hndv hnmp' 2
   run_case "the reported phrase, last word" "$1" "$2" 'hndv hnmp' 1
   run_case "a second phrase, whole field" "$1" "$2" 'hgsghl ugd;l' 2

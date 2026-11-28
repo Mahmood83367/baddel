@@ -3,7 +3,8 @@
 
 usage: fixture_field.py TOOLKIT WIDGET TEXT_FILE OUT_FILE
 
-TOOLKIT/WIDGET: gtk3 entry | gtk3 textview | qt5 lineedit | qt5 plaintextedit | qt5 textedit
+TOOLKIT/WIDGET: gtk3 entry | gtk3 textview | gtk4 entry | gtk4 textview |
+                qt5 lineedit | qt5 plaintextedit | qt5 textedit
 
 The caret is placed at the end. The field's current text is written to OUT_FILE
 (UTF-8, exactly as the toolkit reports it) whenever it changes, so a check can
@@ -64,6 +65,49 @@ if toolkit == "gtk3":
     window.present()
     GLib.timeout_add(700, place)
     Gtk.main()
+elif toolkit == "gtk4":
+    import gi
+
+    gi.require_version("Gtk", "4.0")
+    from gi.repository import GLib, Gtk
+
+    def activate(app):
+        window = Gtk.ApplicationWindow(application=app, title="Baddel Check Host")
+        window.set_default_size(560, 160)
+        if widget == "entry":
+            field = Gtk.Entry()
+            field.set_text(text)
+            read = field.get_text
+            field.connect("changed", lambda *_: write(read()))
+
+            def place():
+                field.grab_focus()
+                field.set_position(-1)
+                write(read())
+                return False
+        else:
+            field = Gtk.TextView()
+            buffer = field.get_buffer()
+            buffer.set_text(text)
+
+            def read():
+                return buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+
+            buffer.connect("changed", lambda *_: write(read()))
+
+            def place():
+                field.grab_focus()
+                buffer.place_cursor(buffer.get_end_iter())
+                write(read())
+                return False
+
+        window.set_child(field)
+        window.present()
+        GLib.timeout_add(700, place)
+
+    application = Gtk.Application(application_id="org.baddel.CheckHost")
+    application.connect("activate", activate)
+    application.run([])
 else:
     from PyQt5 import QtCore, QtGui, QtWidgets
 
