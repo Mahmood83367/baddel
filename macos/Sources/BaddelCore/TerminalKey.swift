@@ -113,10 +113,14 @@ public struct TerminalKey: Equatable, Sendable {
         if combination.shift { chord.append("Shift") }
         chord.append(isSpace ? "Spacebar" : combination.key)
 
+        // PSReadLine reads Ctrl+Alt as AltGr and binds Ctrl+Alt+Space as plain
+        // Space (seen in 2.0.0 and 2.4.5), which would correct text at every
+        // space. That one chord is never offered to it.
+        let altGrSpace = combination.control && combination.alt && isSpace
         return TerminalKey(
             sequences: sequences, reason: nil,
             needsOptionAsMeta: platform == .macos && combination.alt,
-            psReadLineChord: chord.joined(separator: "+"), claudeKeystrokes: claude)
+            psReadLineChord: altGrSpace ? nil : chord.joined(separator: "+"), claudeKeystrokes: claude)
     }
 
     public enum Shell: String, Sendable { case zsh, bash }

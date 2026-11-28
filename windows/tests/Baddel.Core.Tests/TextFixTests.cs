@@ -133,7 +133,7 @@ public class TerminalKeyTests
             Assert.True(key.IsDeliverable, combination.ToString());
             Assert.Equal(Strings("sequences"), key.Sequences.Select(Convert.ToHexString).Select(h => h.ToLowerInvariant()).ToArray());
             Assert.Equal(expect.GetProperty("needsOptionAsMeta").GetBoolean(), key.NeedsOptionAsMeta);
-            Assert.Equal(expect.GetProperty("psReadLineChord").GetString(), key.PsReadLineChord);
+            Assert.Equal(expect.GetProperty("psReadLineChord").ValueKind == JsonValueKind.Null ? null : expect.GetProperty("psReadLineChord").GetString(), key.PsReadLineChord);
             Assert.Equal(Strings("claude"), key.ClaudeKeystrokes.ToArray());
             Assert.Equal(Strings("zsh"), key.Notation(zsh: true).ToArray());
             Assert.Equal(Strings("bash"), key.Notation(zsh: false).ToArray());
@@ -179,6 +179,17 @@ public class TerminalKeyTests
             output = new StringWriter();
             Assert.Equal(1, TerminalSharing.RunCommand("pwsh", "Win+Space", TerminalPlatform.Windows, null, directory.FullName, "PowerShell", output, TextWriter.Null));
             Assert.Equal("no usesCommandKey\n", output.ToString());
+
+            // PSReadLine would bind the Windows default as plain Space, so it is never offered.
+            var fresh = Directory.CreateTempSubdirectory("baddel-terminal-key-test");
+            output = new StringWriter();
+            Assert.Equal(1, TerminalSharing.RunCommand("pwsh", "Ctrl+Alt+Space", TerminalPlatform.Windows, null, fresh.FullName, "PowerShell", output, TextWriter.Null));
+            Assert.Equal("no ctrlAltSpaceIsAltGrSpace\n", output.ToString());
+            Assert.False(TerminalSharing.IntegrationSeen(fresh.FullName));
+            output = new StringWriter();
+            Assert.Equal(0, TerminalSharing.RunCommand("pwsh", "Ctrl+Shift+Space", TerminalPlatform.Windows, null, fresh.FullName, "PowerShell", output, TextWriter.Null));
+            Assert.Equal("ok\nCtrl+Shift+Spacebar\n", output.ToString());
+            fresh.Delete(recursive: true);
         }
         finally
         {

@@ -44,7 +44,7 @@ CTRL_T, CTRL_G, CTRL_U, CTRL_UNDERSCORE, CTRL_Z, CTRL_A, CTRL_E, CTRL_AT = "\x14
 KEY = CTRL_T
 OPTION_SPACE = "\u00a0"       # macOS Terminal, default settings: Option-(Shift-)Space types a no-break space
 ESC_SPACE = "\x1b "           # the same key with "Use Option as Meta key"
-CTRL_ALT_SPACE = "\x1b\x00"   # Ctrl+Alt+Space on Windows and Linux terminals
+CTRL_ALT_SPACE = "\x1b\x00"   # Ctrl+Alt+Space on Linux terminals
 DUMP_KEY = "\x18\x04"  # Ctrl+X Ctrl+D, bound by the checks to "write the buffer to a file"
 PLACEHOLDER_KEY = "sk-ant-api03-" + "baddel-terminal-check-placeholder-0000000000000000"
 
@@ -344,8 +344,15 @@ def check_pwsh(args):
         print("   ", version[-1] if version else "PSReadLine version unknown")
         before = (files.read(prompts) or "").count("p")
         global KEY
-        KEY = CTRL_ALT_SPACE if args.key in ("shared", "shared-meta") else CTRL_T
-        print("    key under test:", "Baddel's shortcut, Ctrl+Alt+Space (Escape, NUL over the SSH terminal)" if KEY == CTRL_ALT_SPACE else "Ctrl+T")
+        # PSReadLine reads Ctrl+Alt as AltGr and would bind Ctrl+Alt+Space as plain
+        # Space, so with the default shortcut the integration must fall back to Ctrl+T.
+        KEY = CTRL_T
+        print("    key under test:", "Ctrl+T set with BADDEL_KEY" if args.key == "ctrl-t"
+              else "Ctrl+T, the fallback for the default Ctrl+Alt+Space, which PSReadLine cannot bind")
+        files.remove(dump + ".keys")
+        terminal.send("[IO.File]::WriteAllText('" + dump + ".keys', ((Get-PSReadLineKeyHandler -Bound | Where-Object Function -eq 'BaddelFix' | ForEach-Object Key) -join ','))\r", 2.0)
+        report.check("the handler is bound to Ctrl+T and to nothing else (in particular not to Space)", files.read(dump + ".keys"), "Ctrl+t")
+        files.remove(dump + ".keys")
         # Twelve Shift+Left keys select the last two words.
         selection = "echo ugd;l hgsghl" + "\x1b[1;2D" * 12 + KEY
         cases = shell_cases(CTRL_Z, selection)
@@ -392,7 +399,9 @@ def check_claude(args):
         if "ready" not in remote_powershell(args.ssh, setup).stdout:
             report.check("the test folder on the host is prepared", "failed", "ready")
             return report.finish()
-        shared_key = CTRL_ALT_SPACE
+        # Windows Terminal reports Ctrl+Alt+Space as a console key event. An SSH
+        # terminal has no way to send one, so the shortcut itself is not pressed here.
+        shared_key = None
         bindings = json.dumps({"bindings": [{"context": "Chat", "bindings": {"ctrl+alt+space": "chat:externalEditor"}}]})
         remote_powershell(args.ssh, f"[IO.File]::WriteAllText('{config}\\keybindings.json', '{bindings}', (New-Object Text.UTF8Encoding($false)))")
         command = (f"$env:CLAUDE_CONFIG_DIR='{config}'; $env:ANTHROPIC_API_KEY='{PLACEHOLDER_KEY}'; $env:VISUAL='{editor}'; "
@@ -465,12 +474,15 @@ exec {shlex.quote(os.path.abspath(args.bin))} --fix-draft --hint "$(cat {shlex.q
         clear()
 
         # Baddel's own shortcut, bound in Claude Code's keybindings file to the same action.
-        terminal.send("ugd;l hgsghl", 0.8)
-        terminal.send(shared_key, 2.5)
-        report.check("Baddel's shortcut, bound in keybindings.json, corrects the draft", draft(), "عليكم السلام")
-        terminal.send(CTRL_UNDERSCORE, 0.8)
-        report.check("and Ctrl+_ restores it", draft(), "ugd;l hgsghl")
-        clear()
+        if shared_key:
+            terminal.send("ugd;l hgsghl", 0.8)
+            terminal.send(shared_key, 2.5)
+            report.check("Baddel's shortcut, bound in keybindings.json, corrects the draft", draft(), "عليكم السلام")
+            terminal.send(CTRL_UNDERSCORE, 0.8)
+            report.check("and Ctrl+_ restores it", draft(), "ugd;l hgsghl")
+            clear()
+        else:
+            print("NOTE  Baddel's shortcut through keybindings.json: not run (an SSH terminal cannot send Ctrl+Alt+Space as a key event)")
 
         terminal.send("ugd;l [Image #1] hgsghl", 0.8)
         terminal.send(CTRL_G, 2.5)

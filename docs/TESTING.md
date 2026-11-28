@@ -18,7 +18,11 @@ a command or a draft, and each check confirms that nothing was run or
 submitted. No personal shell configuration, history or running session was
 used.
 
-**Shell command line** — the same cases in every shell:
+**Shell command line** — the same cases in every shell. The key pressed is
+Baddel's own shortcut as a terminal delivers it (zsh: the no-break space of
+`⌥⇧Space`, and Escape-Space for Option as Meta; Bash: Escape-NUL for
+`Ctrl+Alt+Space`), and `Ctrl+T` in the fallback and `BADDEL_KEY` runs and in
+PowerShell:
 
 | Case | zsh | Bash | PowerShell |
 |---|---|---|---|
@@ -70,16 +74,46 @@ SSH terminal, Claude Code installed into the temporary folder with npm.
 Setting `VISUAL` through the `env` block of Claude Code's `settings.json` was
 tried on macOS only.
 
+**One shortcut** — how Baddel's own combination reaches each host:
+
+| Check | Result |
+|---|---|
+| zsh binds what `--terminal-key zsh` reports for `⌥⇧Space`; all shell cases pass with the no-break space and with Escape-Space (pseudo-terminal, and in CI on macOS 15) | Passed |
+| A stored shortcut with Command: the script falls back to `Ctrl+T`, and the status command says the shortcut cannot reach a terminal | Passed (zsh), Passed (Bash, `Super+space`) |
+| `BADDEL_KEY` overrides the shortcut | Passed (zsh, Bash, PowerShell) |
+| Loading a script switches automatic pass-through on (macOS preference, Linux marker file) | Passed |
+| macOS layout tables: Option-Space and Option-Shift-Space give U+00A0 under ABC, British, Arabic, Arabic – PC and Arabic – QWERTY | Observed |
+| Claude Code with the entry from `--terminal-key claude` in its `keybindings.json`: Escape-Space corrects the draft, `Ctrl+_` restores it (macOS, pseudo-terminal) | Passed |
+| **Real terminal windows on Linux** (`linux/scripts/terminal-window-check.sh`, GitHub-hosted Ubuntu 24.04, X11 under Xvfb with openbox, the packaged app running, keys sent as raw key codes through XTEST): | |
+| – with sharing off, `Ctrl+Alt+Space` never reaches the terminal (the grab consumes it) | Passed in xterm, xfce4-terminal, GNOME Terminal |
+| – with sharing on (automatic), English layout: one press, `Ctrl+_`, two presses | Passed in all three |
+| – with the **Arabic layout active**, the same physical keys type Arabic, and the shortcut pressed under that layout corrects the last word and the whole line | Passed in all three |
+| – xterm with stock settings | Not corrected: it does not send Alt as Escape; `metaSendsEscape` is needed (the passing xterm run sets it) |
+| PSReadLine 2.0.0 and 2.4.5 record the chord `Ctrl+Alt+Spacebar` as `Spacebar` (Windows 11) | Observed; Baddel never offers that chord, and the script removes any binding that ends up without a modifier |
+| PowerShell with the default shortcut: the handler is bound to `Ctrl+t` only, and all shell cases pass with it (CI-built ZIP, SSH terminal) | Passed |
+
 Not verified:
 
-- The windows of Terminal.app, Windows Terminal and a Linux desktop terminal
-  themselves. The checks talk to the shell and to Claude Code through a
-  pseudo-terminal (on Windows, the SSH server's ConPTY), which is what those
-  applications provide, but no key was pressed in their windows. In
-  particular, that `Ctrl+T`, `Ctrl+G` and `Ctrl+_` arrive while an Arabic
-  layout is active was checked only against the macOS layout tables (Arabic,
-  Arabic – PC and Arabic – QWERTY produce the same control characters as ABC),
-  not by typing.
+- **Key presses in a Terminal.app window and in a Windows Terminal window.**
+  I may not type into terminal applications on the Mac this was developed on,
+  and the Windows machine had no interactive desktop session. What stands in
+  for them: on macOS the layout tables and the pseudo-terminal runs with the
+  exact bytes; on Windows the PSReadLine chord table above. That Terminal
+  passes `⌥⇧Space` on as U+00A0 with its default settings, and that Baddel's
+  release of the shortcut takes effect when Terminal comes to the front, were
+  not observed in a window. On Windows nothing about the shortcut was observed
+  in a window: not the release for Windows Terminal, not `Ctrl+Shift+Space` in
+  PSReadLine, not `Ctrl+Alt+Space` in Claude Code (an SSH terminal cannot send
+  it as a key event).
+- Claude Code on Linux and Windows with Baddel's shortcut in
+  `keybindings.json` (on Linux only because the container host was not
+  available for this round; `Ctrl+G` was verified on both earlier).
+- That `Ctrl+G` and `Ctrl+_` arrive while an Arabic layout is active was
+  checked on macOS only against the layout tables (Arabic, Arabic – PC and
+  Arabic – QWERTY produce the same control characters as ABC), not by typing.
+- Claude Code's "Show last response in external editor" in a live session
+  with a real reply. The block's format was taken from Claude Code 2.1.332
+  itself and is covered by the shared fixtures and the command tests.
 - Reading the active layout. On macOS the command read the active input
   source correctly with an English layout active; Arabic active was not
   tried, and the checks pass the layout explicitly. On Windows and Linux it

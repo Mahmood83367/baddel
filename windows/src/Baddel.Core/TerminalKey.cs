@@ -90,8 +90,12 @@ public sealed record TerminalKey(
         if (combination.Shift) chord.Add("Shift");
         chord.Add(isSpace ? "Spacebar" : combination.Key);
 
+        // PSReadLine reads Ctrl+Alt as AltGr and binds Ctrl+Alt+Space as plain Space
+        // (seen in 2.0.0 and 2.4.5), which would correct text at every space. That
+        // one chord is never offered to it.
+        var altGrSpace = combination.Control && combination.Alt && isSpace;
         return new TerminalKey(
-            sequences, null, platform == TerminalPlatform.Macos && combination.Alt, string.Join("+", chord), claude);
+            sequences, null, platform == TerminalPlatform.Macos && combination.Alt, altGrSpace ? null : string.Join("+", chord), claude);
     }
 
     /// <summary>The sequences in the notation <c>bindkey</c> (zsh) or <c>bind</c> (Bash) reads.</summary>
@@ -205,7 +209,16 @@ public static class TerminalSharing
                 : "waiting (automatic: starts when a shell or Claude Code integration first asks for the key)",
         };
         lines.Add($"Passed to terminal windows: {sharing}");
-        lines.Add($"{shell} and Claude Code receive it as {string.Join(" or ", key.ClaudeKeystrokes)}.");
+        if (shell == "PowerShell" && key.PsReadLineChord is null)
+        {
+            lines.Add("PowerShell: uses Ctrl+T. PSReadLine reads Ctrl+Alt+Space as Space (AltGr), so it cannot be given this shortcut. "
+                + "A shortcut such as Ctrl+Shift+Space works in both.");
+            lines.Add($"Claude Code receives it as {string.Join(" or ", key.ClaudeKeystrokes)}.");
+        }
+        else
+        {
+            lines.Add($"{shell} and Claude Code receive it as {string.Join(" or ", key.ClaudeKeystrokes)}.");
+        }
         return lines;
     }
 
@@ -240,8 +253,12 @@ public static class TerminalSharing
                 output.Write("ok\n" + string.Join("\n", key.Notation(zsh: target == "zsh")) + "\n");
                 return 0;
             case "pwsh":
+                if (key?.PsReadLineChord is not { } chord)
+                {
+                    output.Write($"no {key?.Reason ?? "ctrlAltSpaceIsAltGrSpace"}\n");
+                    return 1;
+                }
                 MarkSeen(settingsDirectory);
-                if (key?.PsReadLineChord is not { } chord) { output.Write($"no {key?.Reason ?? "unknown"}\n"); return 1; }
                 output.Write($"ok\n{chord}\n");
                 return 0;
             case "claude":

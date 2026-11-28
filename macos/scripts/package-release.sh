@@ -83,8 +83,9 @@ Use
 In a terminal  (opt-in)
   zsh command line: add this line to ~/.zshrc, then open a new terminal:
     source /Applications/Baddel.app/Contents/Resources/shell/baddel.zsh
-  Ctrl+T once fixes the selected text or the last word before the cursor,
-  twice quickly the whole command line. Ctrl+_ undoes. Nothing is run for you.
+  The same shortcut then works on the command line: once fixes the selected
+  text or the last word before the cursor, twice quickly the whole line.
+  Ctrl+_ undoes. Nothing is run for you.
   Claude Code message box: set VISUAL for Claude Code to
     /Applications/Baddel.app/Contents/MacOS/Baddel --fix-draft
   and press Ctrl+G to fix the whole unsent draft; Ctrl+_ undoes. Nothing is

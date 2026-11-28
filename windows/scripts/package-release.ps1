@@ -87,6 +87,8 @@ In a terminal  (opt-in)
     . "C:\path\to\Baddel\shell\baddel.ps1"
   Ctrl+T once fixes the selected text or the last word before the cursor,
   twice quickly the whole command line. Ctrl+Z undoes. Nothing is run for you.
+  (PowerShell cannot be given Ctrl+Alt+Space: it reads it as Space. Choose a
+  shortcut such as Ctrl+Shift+Space in Settings and it is used here as well.)
   Claude Code composer: set the VISUAL environment variable for Claude Code to
     C:\path\to\Baddel\Baddel.exe --fix-draft
   and press Ctrl+G to fix the whole unsent draft; Ctrl+_ undoes. Nothing is

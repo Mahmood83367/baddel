@@ -66,9 +66,11 @@ Use
 In a terminal  (opt-in; works without the desktop parts above)
   Bash command line: add this line to ~/.bashrc, with the folder you unpacked:
     source /path/to/shell/baddel.bash
-  Ctrl+T once fixes the last word before the cursor, twice quickly the whole
-  command line. Ctrl+_ undoes (twice after a double press). Nothing is run for
-  you. Needs Bash 4.0 or later and libxkbcommon0 with xkb-data.
+  The same shortcut then works on the command line: once fixes the last word
+  before the cursor, twice quickly the whole line. Ctrl+_ undoes (twice after
+  a double press). Nothing is run for you. Needs Bash 4.0 or later and
+  libxkbcommon0 with xkb-data; xterm also needs metaSendsEscape.
+  ./baddel --terminal-key status   says what is active.
   Claude Code composer: start Claude Code with
     VISUAL="/path/to/baddel --fix-draft" claude
   and press Ctrl+G to fix the whole unsent draft; Ctrl+_ undoes. Nothing is

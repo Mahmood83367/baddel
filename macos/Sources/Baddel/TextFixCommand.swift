@@ -166,8 +166,8 @@ enum TerminalKeyCommand {
             guard key.isDeliverable else { out(["no \(key.reason ?? "unknown")"]); return 1 }
             out(["ok"] + key.notation(for: target == "zsh" ? .zsh : .bash))
         case "pwsh":
+            guard let chord = key.psReadLineChord else { out(["no \(key.reason ?? "ctrlAltSpaceIsAltGrSpace")"]); return 1 }
             settings.terminalIntegrationSeen = true
-            guard let chord = key.psReadLineChord else { out(["no \(key.reason ?? "unknown")"]); return 1 }
             out(["ok", chord])
         case "claude":
             guard key.isDeliverable else {

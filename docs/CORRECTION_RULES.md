@@ -114,6 +114,10 @@ differences:
 - **Claude Code markers are kept.** In a draft, `[Image #1]`,
   `[Pasted text #1 +30 lines]` and `[...Truncated text #1 +120 lines...]` come
   back unchanged, and their letters are not evidence for either script.
+- **Claude's previous reply is not the draft.** When Claude Code puts its last
+  reply at the top of the file, everything up to and including the line
+  `# ─── Write your reply below this line ───` is left out of the direction
+  decision and comes back unchanged.
 
 ## When nothing is changed
 

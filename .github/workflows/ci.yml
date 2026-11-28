@@ -181,8 +181,9 @@ jobs:
           $info.UseShellExecute = $false; $info.RedirectStandardOutput = $true
           $process = [System.Diagnostics.Process]::Start($info)
           $answer = $process.StandardOutput.ReadToEnd(); $process.WaitForExit()
-          if ($answer -cne "ok`nCtrl+Alt+Spacebar`n") { throw "terminal-key mismatch" }
-          if (-not (Test-Path (Join-Path $env:BADDEL_SETTINGS_DIR "terminal-integration"))) { throw "integration marker missing" }
+          # The default Ctrl+Alt+Space must not be offered: PSReadLine would bind it as Space.
+          if ($answer -cne "no ctrlAltSpaceIsAltGrSpace`n") { throw "terminal-key mismatch" }
+          if (Test-Path (Join-Path $env:BADDEL_SETTINGS_DIR "terminal-integration")) { throw "integration marker must not be left" }
           "terminal-key command: ok"
       - uses: actions/upload-artifact@v4
         with:

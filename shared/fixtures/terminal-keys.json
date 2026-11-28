@@ -41,7 +41,7 @@
           "1b00"
         ],
         "needsOptionAsMeta": false,
-        "psReadLineChord": "Ctrl+Alt+Spacebar",
+        "psReadLineChord": null,
         "claude": [
           "ctrl+alt+space"
         ],
@@ -65,7 +65,7 @@
           "1b00"
         ],
         "needsOptionAsMeta": false,
-        "psReadLineChord": "Ctrl+Alt+Spacebar",
+        "psReadLineChord": null,
         "claude": [
           "ctrl+alt+space"
         ],

@@ -126,8 +126,21 @@ if (-not $baddelKey) {
     Remove-Variable baddelInfo, baddelProcess, baddelAnswer -ErrorAction SilentlyContinue
 }
 if ($baddelKey -ne 'none') {
-    Set-PSReadLineKeyHandler -Chord $baddelKey -BriefDescription 'BaddelFix' `
-        -Description 'Baddel: correct text typed with the wrong keyboard layout (twice: the whole line)' `
-        -ScriptBlock { Invoke-BaddelFix }
+    $baddelBind = {
+        param($chord)
+        Set-PSReadLineKeyHandler -Chord $chord -BriefDescription 'BaddelFix' `
+            -Description 'Baddel: correct text typed with the wrong keyboard layout (twice: the whole line)' `
+            -ScriptBlock { Invoke-BaddelFix }
+    }
+    & $baddelBind $baddelKey
+    # PSReadLine reads Ctrl+Alt as AltGr and can turn a chord into a plain key
+    # (Ctrl+Alt+Space becomes Space). Never leave the handler on a key without a
+    # modifier: take it off again and use Ctrl+T.
+    $baddelBare = @(Get-PSReadLineKeyHandler -Bound | Where-Object { $_.Function -eq 'BaddelFix' -and $_.Key -notmatch '\+' })
+    if ($baddelBare.Count -gt 0) {
+        $baddelBare | ForEach-Object { Remove-PSReadLineKeyHandler -Chord $_.Key }
+        & $baddelBind 'Ctrl+t'
+    }
+    Remove-Variable baddelBind, baddelBare
 }
 Remove-Variable baddelKey
