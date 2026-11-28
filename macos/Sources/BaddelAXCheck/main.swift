@@ -22,7 +22,7 @@ var arguments = Array(CommandLine.arguments.dropFirst())
 while !arguments.isEmpty {
     let name = arguments.removeFirst()
     guard name.hasPrefix("--") else { fail("unexpected-argument") }
-    if ["--undo", "--tamper", "--sources", "--frontmost", "--select-only", "--compare-only", "--click-undo"].contains(name) {
+    if ["--undo", "--tamper", "--sources", "--frontmost", "--select-only", "--compare-only", "--click-undo", "--describe", "--paste", "--composer-check"].contains(name) {
         flags.insert(name)
     } else if !arguments.isEmpty {
         options[name] = arguments.removeFirst()
@@ -47,6 +47,121 @@ if flags.contains("--sources") {
 if let id = options["--restore-source"] {
     print("sourceRestored=\(InputSourceSwitcher(store: store).selectInputSource(id: id))")
     exit(0)
+}
+
+// `--describe --pid N` reports, read-only, what Baddel sees as the focused
+// element of that app: codes, roles and capabilities, never text. It uses the
+// same focus provider as the app, so it also asks a Chromium-based app for its
+// accessibility tree, exactly as a shortcut press would.
+if flags.contains("--describe") {
+    guard let pid = options["--pid"].flatMap({ pid_t($0) }) else { fail("missing--pid") }
+    let app = NSRunningApplication(processIdentifier: pid)
+    let version = app?.bundleURL.flatMap { Bundle(url: $0)?.infoDictionary?["CFBundleShortVersionString"] as? String } ?? "-"
+    print("accessibilityTrusted=\(AccessibilityPermission.isGranted)")
+    print("app=\(app?.bundleIdentifier ?? "-") version=\(version) frontmost=\(app?.isActive ?? false) "
+        + "chromiumBased=\(app?.bundleURL.map(WebAccessibility.isChromiumBased) ?? false)")
+    let provider = AXFocusProvider(processID: pid)
+    provider.pasteFallback = flags.contains("--paste") ? PasteFallback() : nil
+    let field = provider.focusedField() as? AXField
+    let report = provider.lastReport
+    print("foundElement=\(report.foundElement) wake=\(report.wake?.rawValue ?? "-") waitedMs=\(report.waitedMs)")
+    guard let field else {
+        print("result=noFocusedField")
+        exit(0)
+    }
+    func settable(_ name: String) -> Bool {
+        var value: DarwinBoolean = false
+        return AXUIElementIsAttributeSettable(field.element, name as CFString, &value) == .success && value.boolValue
+    }
+    let length = (try? field.readText())?.utf16.count
+    print("role=\(field.role) subrole=\(field.subrole.isEmpty ? "-" : field.subrole) secure=\(field.isSecure) "
+        + "textLength=\(length.map(String.init) ?? "unreadable") selectionReadable=\((try? field.readSelection()) != nil)")
+    print("settable value=\(settable("AXValue")) selectedText=\(settable("AXSelectedText")) selectedTextRange=\(settable("AXSelectedTextRange"))")
+    print("result=\(field.isSecure ? "secureField" : field.unsupportedReason ?? "supported")")
+    exit(0)
+}
+
+// `--composer-check --pid N` exercises Baddel's write path on a web app's
+// message box without needing the app in front: it finds the one editable text
+// area in the app's focused window, refuses unless that is empty, places a
+// fixture, corrects it with `AXField.replace`, verifies the result and puts the
+// box back to empty. Nothing is sent, and no existing text is ever touched.
+if flags.contains("--composer-check") {
+    guard let pid = options["--pid"].flatMap({ pid_t($0) }) else { fail("missing--pid") }
+    let application = AXUIElementCreateApplication(pid)
+    AXUIElementSetMessagingTimeout(application, 2)
+    WebAccessibility.wake(processID: pid, bundleURL: NSRunningApplication(processIdentifier: pid)?.bundleURL)
+    func value(_ element: AXUIElement, _ name: String) -> CFTypeRef? {
+        var result: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, name as CFString, &result) == .success ? result : nil
+    }
+    var areas: [AXUIElement] = []
+    var deadline = Date().addingTimeInterval(3)
+    repeat {
+        areas = []
+        var queue: [AXUIElement] = (value(application, "AXFocusedWindow")).map { [$0 as! AXUIElement] } ?? []
+        var visited = 0
+        while !queue.isEmpty, visited < 4000 {
+            let element = queue.removeFirst()
+            visited += 1
+            if value(element, "AXRole") as? String == "AXTextArea" { areas.append(element) }
+            queue.append(contentsOf: (value(element, "AXChildren") as? [AXUIElement]) ?? [])
+        }
+        if areas.isEmpty { Thread.sleep(forTimeInterval: 0.2) }
+    } while areas.isEmpty && Date() < deadline
+    print("textAreas=\(areas.count)")
+    guard areas.count == 1, let element = areas.first else { print("result=SKIP need-exactly-one-text-area"); exit(0) }
+    let field = AXField(element: element)
+    print("role=\(field.role) supported=\(field.unsupportedReason ?? "yes")")
+    // Some editors expose their placeholder as the value of an empty box; the
+    // placeholder is marked as such on the element's only child.
+    let children = (value(element, "AXChildren") as? [AXUIElement]) ?? []
+    let showsPlaceholder = children.count == 1
+        && ((value(children[0], "AXDOMClassList") as? [String]) ?? []).contains { $0 == "placeholder" || $0 == "is-empty" }
+    guard let empty = try? field.readText(), showsPlaceholder || empty.allSatisfy({ $0.isWhitespace || $0.isNewline }) else {
+        print("result=SKIP composer-not-empty")
+        exit(0)
+    }
+    print("emptyState=\(showsPlaceholder ? "placeholder" : "blank")")
+    func settle(_ expected: (String) -> Bool) -> String? {
+        deadline = Date().addingTimeInterval(1.0)
+        while Date() < deadline {
+            if let now = try? field.readText(), expected(now) { return now }
+            Thread.sleep(forTimeInterval: 0.03)
+        }
+        return nil
+    }
+    let fixture = "ugd;l hgsghl"
+    AXUIElementSetAttributeValue(element, "AXValue" as CFString, fixture as CFString)
+    guard let placed = settle({ $0.hasPrefix(fixture) }) else {
+        AXUIElementSetAttributeValue(element, "AXValue" as CFString, (showsPlaceholder ? "" : empty) as CFString)
+        print("result=SKIP fixture-could-not-be-placed")
+        exit(0)
+    }
+    print("fixturePlaced=true trailing=\(placed.utf16.count - fixture.utf16.count)")
+    var outcome = "FAIL"
+    let pair = LayoutPair(latin: store.layout(id: "us-english")!, arabic: store.layout(id: "arabic-mac")!)
+    if case .success(let plan) = CorrectionPlanner(pair: pair).plan(text: placed, target: .wholeField, hint: nil) {
+        do {
+            try field.replace(range: plan.range, in: placed, with: plan.replacement)
+            let corrected = (try? field.readText()) ?? ""
+            let ok = corrected.hasPrefix("عليكم السلام")
+            outcome = ok ? "PASS" : "FAIL"
+            print("replaced strategy=\(field.lastWriteStrategy) verified=\(ok)")
+            // The reverse direction, as Undo does it.
+            if ok, case .success(let back) = CorrectionPlanner(pair: pair).plan(text: corrected, target: .wholeField, hint: nil) {
+                try field.replace(range: back.range, in: corrected, with: back.replacement)
+                print("undoLikeReplace verified=\(((try? field.readText()) ?? "").hasPrefix(fixture)) strategy=\(field.lastWriteStrategy)")
+            }
+        } catch {
+            print("replaceRejected=\((error as? Rejection)?.rawValue ?? "error")")
+        }
+    }
+    AXUIElementSetAttributeValue(element, "AXValue" as CFString, (showsPlaceholder ? "" : empty) as CFString)
+    let restored = settle({ $0 == empty || $0.allSatisfy({ $0.isWhitespace || $0.isNewline }) }) != nil
+    print("composerRestoredToEmpty=\(restored)")
+    print("result=\(outcome)")
+    exit(outcome == "PASS" && restored ? 0 : 1)
 }
 
 if flags.contains("--frontmost") {
