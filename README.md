@@ -25,9 +25,17 @@ Baddel skips password fields and fields it cannot edit safely. [Tested environme
 
 ## Download and install
 
-Choose the package for your platform from the download page. The current release is `0.2.1`, for macOS, Windows and Linux. Each release lists its signing status and SHA-256 checksums: the macOS app is ad-hoc signed and not notarized by Apple, and the Windows app is not code-signed, so both systems warn before the first start. A signed, notarized macOS build will follow as a later, higher version. [Download page](https://mahmoood.com/baddel/) · [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.1)
+Choose the package for your platform from the download page. The current release is `0.2.1`, for macOS, Windows and Linux. Each release lists its signing status and SHA-256 checksums: the macOS app is ad-hoc signed and not notarized by Apple, and the Windows app is not code-signed, so both systems warn before the first start. Version `0.2.2`, a signed macOS installer, is prepared but **not published yet**; see below. [Download page](https://mahmoood.com/baddel/) · [Release notes](https://github.com/Mahmood83367/baddel/releases/tag/v0.2.1)
 
 ### macOS
+
+**Coming in `0.2.2`: a signed installer (pending).** The macOS app and a `.pkg` installer for `0.2.2` have been signed with the Developer ID of HEALTH 360 AI LTD (team 7NGNGSXQK5). The installer is waiting for Apple's notarization and is not published or downloadable yet. Until it is, `0.2.1` below is the current macOS download. Once `0.2.2` is released, installing will be:
+
+1. Open `Baddel-0.2.2-macos-universal.pkg`. If Baddel is running, Installer asks you to quit it first. The package installs one thing, `Baddel.app` in **Applications**, and runs no scripts.
+2. Open Baddel from **Applications** and allow it under **System Settings → Privacy & Security → Accessibility**. Because the signing identity changes from `0.2.1`, macOS asks for this once more after the upgrade.
+3. To start it with your Mac, turn on **Open Baddel at login** in Baddel's Settings. The installer does not turn it on for you.
+
+**Current release, `0.2.1` (ZIP):**
 
 1. Extract the macOS ZIP and move `Baddel.app` to **Applications**. Run it from there: a copy started from **Downloads** is run by macOS from a temporary location, and its Accessibility permission does not stick.
 2. Open Baddel from **Applications**. Its icon appears in the menu bar.
