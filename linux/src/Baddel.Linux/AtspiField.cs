@@ -70,8 +70,18 @@ public sealed class AtspiField : IEditableField
         return result;
     }
 
-    public bool IsEditableText =>
-        text != IntPtr.Zero && editable != IntPtr.Zero && HasState(Atspi.StateEditable) && HasState(Atspi.StateEnabled);
+    public bool IsEditableText => UnsupportedReason is null;
+
+    /// <summary>Why this element cannot be corrected, as a code that is safe to log, or <c>null</c>.</summary>
+    public string? UnsupportedReason =>
+        text == IntPtr.Zero ? "noTextInterface"
+        : editable == IntPtr.Zero ? "noEditableTextInterface"
+        : !HasState(Atspi.StateEditable) ? "notEditable"
+        : !HasState(Atspi.StateEnabled) ? "disabled"
+        : null;
+
+    /// <summary>The element's role as the toolkit names it, for diagnostics.</summary>
+    public string RoleName => Atspi.TakeString(Atspi.atspi_accessible_get_role_name(accessible, IntPtr.Zero));
 
     public bool HasFocus => HasState(Atspi.StateFocused);
 
@@ -161,6 +171,13 @@ public sealed class AtspiField : IEditableField
         if (start < 0 || end < start) throw new RejectionException(Rejection.InvalidRange);
         var old = snapshot.Substring(range.Location, range.Length);
         var afterDelete = CorrectionEngine.Replacing(range, snapshot, string.Empty);
+        // Everything that will be written, and what would have to be put back, is
+        // checked before the first change: text that cannot be passed on intact is
+        // refused while the field is still untouched.
+        if (Atspi.NulTerminatedUtf8(replacement) is null || Atspi.NulTerminatedUtf8(old) is null)
+        {
+            throw new RejectionException(Rejection.WriteFailed);
+        }
 
         if (end > start && Atspi.atspi_editable_text_delete_text(editable, start, end, IntPtr.Zero) == 0)
         {
@@ -176,18 +193,37 @@ public sealed class AtspiField : IEditableField
         Insert(start, replacement);
         if (WaitFor(expected, 300)) return;
 
-        // The replacement did not arrive: restore what was deleted.
-        if (SafeRead() == afterDelete)
+        // The field does not hold the expected text. Put the original back,
+        // whatever arrived: nothing at all, or something other than what was sent.
+        var now = SafeRead();
+        if (now == afterDelete)
         {
             Insert(start, old);
-            if (WaitFor(snapshot, 300)) throw new RejectionException(Rejection.WriteFailed);
         }
+        else if (now is not null && now.StartsWith(snapshot[..range.Location], StringComparison.Ordinal)
+                 && now.EndsWith(snapshot[range.End..], StringComparison.Ordinal)
+                 && now.Length >= snapshot.Length - range.Length)
+        {
+            // Text before and after the range is intact; only what sits in between is wrong.
+            var wrongStart = TextOffsets.ToCharacters(now, range.Location);
+            var wrongEnd = TextOffsets.ToCharacters(now, now.Length - (snapshot.Length - range.End));
+            if (wrongStart >= 0 && wrongEnd > wrongStart
+                && Atspi.atspi_editable_text_delete_text(editable, wrongStart, wrongEnd, IntPtr.Zero) != 0
+                && WaitFor(afterDelete, 300))
+            {
+                Insert(start, old);
+            }
+        }
+        if (WaitFor(snapshot, 300)) throw new RejectionException(Rejection.WriteFailed);
         throw new RejectionException(Rejection.VerificationFailed);
     }
 
     private void Insert(int position, string value)
     {
         if (value.Length == 0) return;
+        // UTF-8 with a terminating NUL: libatspi passes the pointer on as a C
+        // string, so without the terminator whatever follows the array in memory
+        // is sent to the application as well.
         var bytes = Encoding.UTF8.GetBytes(value);
         Atspi.atspi_editable_text_insert_text(editable, position, bytes, bytes.Length, IntPtr.Zero);
     }
@@ -252,11 +288,67 @@ public sealed class AtspiFocus : IFocusProvider
         return initialised;
     }
 
+    /// <summary>
+    /// What the last search saw, as counts and role names: never text. It tells
+    /// "no application answered" apart from "something else has the focus".
+    /// </summary>
+    public string LastReport { get; private set; } = "notSearched";
+
+    /// <summary>
+    /// Describes the accessibility tree the way a search sees it: each application's
+    /// toolkit, its windows, and every focused element with its role and interfaces.
+    /// </summary>
+    public static List<string> Describe()
+    {
+        var lines = new List<string>();
+        if (!Initialise()) { lines.Add("accessibilityBus=unavailable"); return lines; }
+        var desktop = Atspi.atspi_get_desktop(0);
+        if (desktop == IntPtr.Zero) { lines.Add("desktop=none"); return lines; }
+        Atspi.atspi_accessible_clear_cache(desktop);
+        var applications = Atspi.atspi_accessible_get_child_count(desktop, IntPtr.Zero);
+        lines.Add($"applications={applications}");
+        for (var a = 0; a < applications; a++)
+        {
+            var application = Atspi.atspi_accessible_get_child_at_index(desktop, a, IntPtr.Zero);
+            if (application == IntPtr.Zero) { lines.Add($"application[{a}]=unreachable"); continue; }
+            var toolkit = Atspi.TakeString(Atspi.atspi_accessible_get_toolkit_name(application, IntPtr.Zero));
+            var windows = Atspi.atspi_accessible_get_child_count(application, IntPtr.Zero);
+            lines.Add($"application[{a}] toolkit={(toolkit.Length > 0 ? toolkit : "-")} windows={windows}");
+            for (var w = 0; w < windows; w++)
+            {
+                var window = Atspi.atspi_accessible_get_child_at_index(application, w, IntPtr.Zero);
+                if (window == IntPtr.Zero) continue;
+                var budget = MaxNodes;
+                var focused = new List<IntPtr>();
+                Collect(window, ref budget, 0, focused);
+                lines.Add($"  window[{w}] active={Has(window, Atspi.StateActive)} nodes={MaxNodes - budget} focused={focused.Count}");
+                foreach (var node in focused)
+                {
+                    var field = new AtspiField(node);
+                    lines.Add($"    focused role={field.RoleName.Replace(' ', '-')} result={(field.IsSecure ? "secureField" : field.UnsupportedReason ?? "supported")}");
+                }
+            }
+        }
+        return lines;
+    }
+
+    private static void Collect(IntPtr node, ref int budget, int depth, List<IntPtr> focused)
+    {
+        if (budget-- <= 0 || depth > 40) return;
+        if (Has(node, Atspi.StateFocused)) focused.Add(node);
+        var children = Atspi.atspi_accessible_get_child_count(node, IntPtr.Zero);
+        for (var index = 0; index < children && index < 500; index++)
+        {
+            var child = Atspi.atspi_accessible_get_child_at_index(node, index, IntPtr.Zero);
+            if (child != IntPtr.Zero) Collect(child, ref budget, depth + 1, focused);
+        }
+    }
+
     public IEditableField? FocusedField()
     {
-        if (!Initialise()) return null;
+        if (!Initialise()) { LastReport = "accessibilityBusUnavailable"; return null; }
         var desktop = Atspi.atspi_get_desktop(0);
-        if (desktop == IntPtr.Zero) return null;
+        if (desktop == IntPtr.Zero) { LastReport = "noDesktop"; return null; }
         // No GLib main loop runs here, so cached state is dropped before each search.
         Atspi.atspi_accessible_clear_cache(desktop);
 
@@ -274,10 +366,15 @@ public sealed class AtspiFocus : IFocusProvider
                 if (window == IntPtr.Zero) continue;
                 var found = FindFocused(window, ref budget, 0);
                 if (found == IntPtr.Zero) continue;
-                if (Has(window, Atspi.StateActive)) return new AtspiField(found);
+                if (Has(window, Atspi.StateActive))
+                {
+                    LastReport = "focusedTextElement=inActiveWindow";
+                    return new AtspiField(found);
+                }
                 if (fallback == IntPtr.Zero) fallback = found;
             }
         }
+        LastReport = $"applications={applications} nodesSearched={MaxNodes - budget} focusedTextElement={(fallback == IntPtr.Zero ? "none" : "inInactiveWindow")}";
         // Without a window manager no window is "active"; a single focused element is still usable.
         return fallback == IntPtr.Zero ? null : new AtspiField(fallback);
     }

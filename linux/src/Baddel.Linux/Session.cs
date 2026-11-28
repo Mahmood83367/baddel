@@ -656,7 +656,12 @@ public sealed class Session
         }
         else
         {
-            Say(new DiagnosticEvent(DiagnosticKind.Rejected, mode, result.Rejection ?? Rejection.WriteFailed).Summary);
+            // Says which kind of refusal this was, in codes: what the search found
+            // when there was no field, or why the field cannot be edited.
+            var detail = field is AtspiField known
+                ? $"role={known.RoleName.Replace(' ', '-')}" + (known.UnsupportedReason is { } reason ? $" unsupported={reason}" : string.Empty)
+                : focus.LastReport;
+            Say(new DiagnosticEvent(DiagnosticKind.Rejected, mode, result.Rejection ?? Rejection.WriteFailed).Summary + $" detail=[{detail}]");
         }
     }
 

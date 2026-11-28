@@ -58,7 +58,7 @@ a, e = actual.decode("utf-8", "replace"), expected.decode("utf-8", "replace")
 same = 0
 while same < min(len(a), len(e)) and a[same] == e[same]:
     same += 1
-points = lambda s: " ".join(f"U+{ord(c):04X}" for c in s[:24]) + (" …" if len(s) > 24 else "")
+points = lambda s: " ".join(f"U+{ord(c):04X}" for c in s[:10]) + (" …" if len(s) > 10 else "")
 print(f"FAIL {label} [expected {len(expected)} bytes, field has {len(actual)}; first {same} characters match; "
       f"field then has: {points(a[same:]) or 'nothing'}; expected then: {points(e[same:]) or 'nothing'}; "
       f"replacement characters in field: {a.count(chr(0xFFFD))}]")
@@ -87,6 +87,12 @@ run_case() {  # name toolkit widget input presses
   local event; event=$(tail -n +$((before + 1)) "$LOG" | tail -1 | cut -d' ' -f1-4)
   local line; line=$(compare "$toolkit $widget: $name" "$WORK/out.txt" "$WORK/expected.txt") || failures=$((failures + 1))
   say "$line {$event}"
+  # On a refusal, record once per kind of field what the accessibility bus shows.
+  if echo "$event" | grep -q Rejected && [ ! -f "$WORK/reported-$toolkit-$widget" ]; then
+    touch "$WORK/reported-$toolkit-$widget"
+    say "  log: $(tail -n +$((before + 1)) "$LOG" | tail -1 | cut -c1-300)"
+    "$BADDEL" --focus-report | sed 's/^/  report: /' | tee -a "$RESULTS"
+  fi
   "$BADDEL" --undo; sleep 0.9
   line=$(compare "$toolkit $widget: $name: Undo restores every byte" "$WORK/out.txt" "$WORK/in.txt") || failures=$((failures + 1))
   say "$line"
