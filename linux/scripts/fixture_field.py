@@ -32,24 +32,35 @@ if toolkit == "gtk3":
 
     window = Gtk.Window(title="Baddel Check Host")
     window.set_default_size(560, 160)
-    if widget in ("entry", "garbling-entry"):
+    if widget in ("entry", "concurrent-entry", "dropping-entry"):
         field = Gtk.Entry()
         field.set_text(text)
         read = field.get_text
         field.connect("changed", lambda *_: write(read()))
-        if widget == "garbling-entry":
-            # Stands in for an application that receives more than it was sent:
-            # whenever Arabic text is inserted, three replacement characters
-            # follow it. A correction must notice and put the original back.
+        arabic = lambda value: any("\u0600" <= c <= "\u06ff" for c in value)
+        if widget == "concurrent-entry":
+            # Stands in for an edit that lands while a correction is being
+            # verified: right after Arabic text is inserted, " new" is added at
+            # the end, as if the user had kept typing. The correction must be
+            # reported as failed and must not delete any of it.
             busy = []
 
-            def garble(entry, new_text, _length, _position):
-                if busy or not any("\u0600" <= c <= "\u06ff" for c in new_text):
+            def keep_typing(entry, new_text, _length, _position):
+                if busy or not arabic(new_text):
                     return
                 busy.append(1)
-                GLib.idle_add(lambda: (entry.insert_text("\ufffd\ufffd\ufffd", entry.get_position() + len(new_text)), busy.clear()) and False)
+                GLib.idle_add(lambda: entry.insert_text(" new", -1) and False)
 
-            field.connect("insert-text", garble)
+            field.connect("insert-text", keep_typing)
+        if widget == "dropping-entry":
+            # Stands in for an application that accepts the deletion and then
+            # refuses the insertion: Arabic text never arrives. The correction
+            # must put the deleted text back.
+            def drop(entry, new_text, _length, _position):
+                if arabic(new_text):
+                    entry.stop_emission_by_name("insert-text")
+
+            field.connect("insert-text", drop)
 
         def place():
             field.grab_focus()

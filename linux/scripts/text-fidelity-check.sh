@@ -139,23 +139,33 @@ for target in "gtk3 entry" "gtk3 textview" "gtk4 entry" "gtk4 textview" "qt5 lin
   esac
 done
 
-# An application that appends characters to what it was sent: the correction must
-# be reported as failed and the field must hold the original again, byte for byte.
+# Failed writes. "dropping": the application deletes and then refuses the
+# insertion; the deleted text must be back, byte for byte. "concurrent": new text
+# lands while the correction is being verified; the correction must be reported
+# as failed and the field left exactly as it then is, the new text included.
+failing_case() {  # kind presses expected-file reason label
+  pkill -f fixture_field.py 2>/dev/null; sleep 0.3
+  printf 'hndv hnmp' > "$WORK/in.txt"; rm -f "$WORK/out.txt"
+  python3 "$HERE/fixture_field.py" gtk3 "$1" "$WORK/in.txt" "$WORK/out.txt" >/dev/null 2>&1 &
+  for _ in $(seq 1 100); do [ -f "$WORK/out.txt" ] && break; sleep 0.1; done
+  sleep 0.6
+  local before; before=$(wc -l < "$LOG")
+  for i in $(seq 1 "$2"); do [ "$i" -gt 1 ] && sleep 0.12; "$BADDEL" --trigger; done
+  sleep 2.5
+  local event; event=$(tail -n +$((before + 1)) "$LOG" | tail -1 | cut -d' ' -f1-3)
+  local line; line=$(compare "$5 ($2 press)" "$WORK/out.txt" "$3") || failures=$((failures + 1))
+  say "$line {$event}"
+  if echo "$event" | grep -q "event=Rejected .*reason=$4"; then say "PASS $1 ($2 press): reported as $4"
+  else say "FAIL $1 ($2 press): reported as $4 {$event}"; failures=$((failures + 1)); fi
+}
 if available gtk3; then
   for presses in 2 1; do
-    pkill -f fixture_field.py 2>/dev/null; sleep 0.3
-    printf 'hndv hnmp' > "$WORK/in.txt"; rm -f "$WORK/out.txt"
-    python3 "$HERE/fixture_field.py" gtk3 garbling-entry "$WORK/in.txt" "$WORK/out.txt" >/dev/null 2>&1 &
-    for _ in $(seq 1 100); do [ -f "$WORK/out.txt" ] && break; sleep 0.1; done
-    sleep 0.6
-    before=$(wc -l < "$LOG")
-    for i in $(seq 1 "$presses"); do [ "$i" -gt 1 ] && sleep 0.12; "$BADDEL" --trigger; done
-    sleep 2.5
-    event=$(tail -n +$((before + 1)) "$LOG" | tail -1 | cut -d' ' -f1-3)
-    line=$(compare "a field that adds characters to the inserted text ($presses press): the original is back" "$WORK/out.txt" "$WORK/in.txt") || failures=$((failures + 1))
-    say "$line {$event}"
-    if echo "$event" | grep -q "event=Rejected"; then say "PASS a field that adds characters ($presses press): the correction is reported as failed"
-    else say "FAIL a field that adds characters ($presses press): the correction is reported as failed {$event}"; failures=$((failures + 1)); fi
+    mode=line; [ "$presses" = 1 ] && mode=word
+    printf 'hndv hnmp' > "$WORK/original.txt"
+    printf 'hndv hnmp' | "$BADDEL" --fix-text --mode "$mode" --hint none | tail -n +2 > "$WORK/corrected.txt"
+    { cat "$WORK/corrected.txt"; printf ' new'; } > "$WORK/corrected-and-new.txt"
+    failing_case dropping-entry "$presses" "$WORK/original.txt" WriteFailed "an insertion that never arrives: the deleted text is put back"
+    failing_case concurrent-entry "$presses" "$WORK/corrected-and-new.txt" VerificationFailed "an edit during verification: nothing is deleted, the new text stays"
   done
 fi
 

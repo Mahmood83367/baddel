@@ -161,7 +161,8 @@ public sealed class AtspiField : IEditableField
     /// <summary>
     /// Deletes exactly the target range and inserts the replacement at its start.
     /// Nothing is written unless the field still holds the planned snapshot. If
-    /// the insertion does not arrive, the deleted text is put back.
+    /// the insertion does not arrive, the deleted text is put back. If the field
+    /// ends up holding anything else, it is left alone and the failure is reported.
     /// </summary>
     public void Replace(Utf16Range range, string snapshot, string replacement)
     {
@@ -194,28 +195,17 @@ public sealed class AtspiField : IEditableField
         Insert(start, replacement);
         if (WaitFor(expected, 300)) return;
 
-        // The field does not hold the expected text. Put the original back,
-        // whatever arrived: nothing at all, or something other than what was sent.
-        var now = SafeRead();
-        if (now == afterDelete)
+        // The field does not hold the expected text. Only one state can be
+        // attributed to this operation with certainty: the range was deleted and
+        // nothing has been inserted. Then, and only if this field still has the
+        // focus, the deleted text is put back. Anything else may contain an edit
+        // made in the meantime, by the user or by the application, and is left
+        // exactly as it is.
+        if (HasFocus && SafeRead() == afterDelete)
         {
             Insert(start, old);
+            if (WaitFor(snapshot, 300)) throw new RejectionException(Rejection.WriteFailed);
         }
-        else if (now is not null && now.StartsWith(snapshot[..range.Location], StringComparison.Ordinal)
-                 && now.EndsWith(snapshot[range.End..], StringComparison.Ordinal)
-                 && now.Length >= snapshot.Length - range.Length)
-        {
-            // Text before and after the range is intact; only what sits in between is wrong.
-            var wrongStart = TextOffsets.ToCharacters(now, range.Location);
-            var wrongEnd = TextOffsets.ToCharacters(now, now.Length - (snapshot.Length - range.End));
-            if (wrongStart >= 0 && wrongEnd > wrongStart
-                && Atspi.atspi_editable_text_delete_text(editable, wrongStart, wrongEnd, IntPtr.Zero) != 0
-                && WaitFor(afterDelete, 300))
-            {
-                Insert(start, old);
-            }
-        }
-        if (WaitFor(snapshot, 300)) throw new RejectionException(Rejection.WriteFailed);
         throw new RejectionException(Rejection.VerificationFailed);
     }
 

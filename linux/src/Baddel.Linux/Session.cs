@@ -40,8 +40,8 @@ public sealed class LinuxSettings
     /// <summary>
     /// Qt and KDE applications describe their text fields only while the desktop's
     /// accessibility switch (org.a11y.Status IsEnabled) is on. When this is true,
-    /// Baddel turns the switch on while it runs and back off when it stops, if it
-    /// was off before. Set to false to leave the switch alone.
+    /// Baddel turns the switch on at start if it is off. It never turns it off; the
+    /// switch lasts for the login session. Set to false to leave it alone.
     /// </summary>
     public bool EnableDesktopAccessibility { get; set; } = true;
 
@@ -411,15 +411,7 @@ public sealed class Session
             Say("status=error reason=accessibility-bus-unavailable");
             return 2;
         }
-        var accessibility = settings.EnableDesktopAccessibility ? DesktopAccessibility.TurnOn() : "left-alone";
-        try
-        {
-            return RunSession(accessibility);
-        }
-        finally
-        {
-            DesktopAccessibility.Restore();
-        }
+        return RunSession(settings.EnableDesktopAccessibility ? DesktopAccessibility.TurnOn() : "left-alone");
     }
 
     private int RunSession(string accessibility)
@@ -773,15 +765,18 @@ public sealed class Session
 
 /// <summary>
 /// The desktop's accessibility switch, <c>org.a11y.Status IsEnabled</c> on the
-/// session bus. GTK 3 applications answer accessibility requests regardless of it;
-/// Qt and KDE applications only register while it is on. Screen readers turn it on
-/// the same way. Baddel changes it through <c>gdbus</c> (part of GLib's tools) and
-/// puts it back if it had been off.
+/// session bus. GTK applications answer accessibility requests regardless of it;
+/// Qt and KDE applications only register while it is on. Screen readers turn it
+/// on the same way.
+///
+/// Baddel only ever turns it on, through <c>gdbus</c> (part of GLib's tools), and
+/// only when it is off. It never turns it off: once on, another assistive tool
+/// may have come to rely on it, and Baddel cannot tell. The switch belongs to the
+/// login session, so it is off again after the next login unless something turns
+/// it on. <c>"EnableDesktopAccessibility": false</c> keeps Baddel from touching it.
 /// </summary>
 public static class DesktopAccessibility
 {
-    private static bool turnedOnHere;
-
     private static string? Gdbus(params string[] arguments)
     {
         try
@@ -823,18 +818,8 @@ public static class DesktopAccessibility
             case true: return "already-on";
             case null: return "unavailable";
         }
-        if (Gdbus("org.freedesktop.DBus.Properties.Set", "org.a11y.Status", "IsEnabled", "<true>") is null || IsOn() != true) return "unavailable";
-        turnedOnHere = true;
-        // Also when the process is asked to stop from outside.
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => Restore();
-        return "turned-on";
-    }
-
-    /// <summary>Turns the switch off again, only if this process turned it on.</summary>
-    public static void Restore()
-    {
-        if (!turnedOnHere) return;
-        turnedOnHere = false;
-        Gdbus("org.freedesktop.DBus.Properties.Set", "org.a11y.Status", "IsEnabled", "<false>");
+        return Gdbus("org.freedesktop.DBus.Properties.Set", "org.a11y.Status", "IsEnabled", "<true>") is not null && IsOn() == true
+            ? "turned-on"
+            : "unavailable";
     }
 }
