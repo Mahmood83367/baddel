@@ -108,6 +108,7 @@ internal static class Atspi
     internal const int StateEditable = 7;
     internal const int StateEnabled = 8;
     internal const int StateFocused = 12;
+    internal const int StateSensitive = 24;
     internal const int RolePasswordText = 40;
     internal const int CoordScreen = 0;
 

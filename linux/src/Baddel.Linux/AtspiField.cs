@@ -77,7 +77,8 @@ public sealed class AtspiField : IEditableField
         text == IntPtr.Zero ? "noTextInterface"
         : editable == IntPtr.Zero ? "noEditableTextInterface"
         : !HasState(Atspi.StateEditable) ? "notEditable"
-        : !HasState(Atspi.StateEnabled) ? "disabled"
+        // GTK 3 and Qt report ENABLED; GTK 4 reports only SENSITIVE for a usable field.
+        : !HasState(Atspi.StateEnabled) && !HasState(Atspi.StateSensitive) ? "disabled"
         : null;
 
     /// <summary>The element's role as the toolkit names it, for diagnostics.</summary>
